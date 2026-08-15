@@ -1,1 +1,12 @@
+# Test suites stay local-only for regression verification — they are not part
+# of the distributed plugin and must never be committed or packed.
+test/
+
+# Build artifacts and local tooling.
 *.tgz
+.npm-cache/
+node_modules/
+
+# OS / editor noise.
+.DS_Store
+Thumbs.db
