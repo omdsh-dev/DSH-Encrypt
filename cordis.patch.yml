@@ -1,0 +1,23 @@
+# dsh-encrypt bundle patch: applied after dsh-base's insert.
+#
+# A row patch cannot rename a row (the loader rejects name mismatches), so the
+# swap is disable + insert: the base bundle's plaintext `credentials` row is
+# disabled and dsh-encrypt is inserted as its own row. It provides the same
+# `ctx.credentials` seam, so every consumer — the LLM adapters, the web Models
+# page, web-search — keeps working unchanged.
+#
+# One file, two forms: $DSH_HOME/.credentials.yaml stays plaintext YAML until
+# a password is set in Settings → 加密安全, then the same file's contents are
+# replaced by an AES-256-GCM encrypted document (SHA3-256 fingerprints).
+# Web compositions additionally mount the `dsh-encrypt/web` row for the
+# browser password routes.
+- id: credentials
+  disabled: true
+
+- insert:
+    - id: dsh-encrypt
+      name: 'dsh-encrypt'
+      config:
+        # Keep the inherited environment and .env fallback layers (read-only,
+        # ranked above the managed file). Set false for a strict file-only policy.
+        allowEnvFallback: true
