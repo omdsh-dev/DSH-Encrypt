@@ -1,7 +1,7 @@
 {
   "name": "dsh-encrypt",
-  "version": "0.1.0-rc.7",
-  "description": "WebUI-managed encrypted credentials for DeepSeek Harness: one file, plaintext until a password is set, then AES-256-GCM ciphertext with SHA3-256 fingerprints; per-request decryption.",
+  "version": "0.1.0-rc.9",
+  "description": "WebUI-managed encrypted credentials for DeepSeek Harness: one file, plaintext until a password is set, then AES-256-GCM ciphertext under an Argon2id-derived key with SHA3-256 fingerprints; per-request decryption, unlock lockout, leak-guard output redaction, and shipped-code integrity self-checks.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -21,9 +21,12 @@
     "dsh",
     "credentials",
     "aes-256-gcm",
+    "argon2id",
     "sha3-256",
     "encryption",
-    "password"
+    "password",
+    "prompt-injection",
+    "leak-guard"
   ],
   "license": "MIT",
   "dsh": {
@@ -44,6 +47,7 @@
     "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-launch-environment": "^0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
+    "@node-rs/argon2": "^2.0.0",
     "chokidar": "^4.0.3",
     "yaml": "^2.9.0"
   },
@@ -51,6 +55,9 @@
     "@deepseek-ai/cordis": "^4.0.1"
   },
   "scripts": {
+    "integrity": "node scripts/gen-integrity.mjs",
+    "pretest": "node scripts/gen-integrity.mjs",
+    "prepack": "node scripts/gen-integrity.mjs",
     "test": "node --test --test-isolation=none \"test/*.test.js\""
   }
 }

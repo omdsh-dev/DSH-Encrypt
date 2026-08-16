@@ -1,0 +1,14 @@
+{
+  "format": "dsh-encrypt-integrity",
+  "version": 1,
+  "files": {
+    "cordis.patch.yml": "14b9948fb9de388a7b9c4690a9ea58c6310559253049eb2770b90d8ec56eee77",
+    "lib/client.js": "3fa003a87a42314d6d0ff896caaa53acf1c0a930e36beffed5a36634088c1dcb",
+    "lib/index.js": "be9378c922377422bc6074a92d2e1bf92b255844b5eeadd8105a673a7f5bc757",
+    "lib/integrity.js": "6956ac2dcbcac85bc2233819dc620a9a37f2d9b9826df0da6a9a485b3800ce51",
+    "lib/leak-guard.js": "bb36e8269426806f2a241c72b8280d80bfd6dee41aaa81f96f34b4835a6528cc",
+    "lib/lockout.js": "e6176acefc144362ba825119cefb434c61c399bc1bb67906373368397d043a65",
+    "lib/vault.js": "bd23fa3c5c55f414734d746d0b9e76a1e7c475161c6ccea0fa3438bb04d3230f",
+    "lib/web.js": "b6a7175915288b5e296e319230eae16dac13826ceb0a653d213e49e1a9e1e173"
+  }
+}

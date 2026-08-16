@@ -8,9 +8,17 @@
 #
 # One file, two forms: $DSH_HOME/.credentials.yaml stays plaintext YAML until
 # a password is set in Settings → 加密安全, then the same file's contents are
-# replaced by an AES-256-GCM encrypted document (SHA3-256 fingerprints).
+# replaced by an AES-256-GCM encrypted document (SHA3-256 fingerprints) whose
+# master key is stretched from the password digest with Argon2id.
 # Web compositions additionally mount the `dsh-encrypt/web` row for the
-# browser password routes.
+# browser password routes and the output redaction install.
+#
+# Security hardening (all on by default; see README → 安全加固):
+#   - leakGuard:        mask resolved credential values in WebUI responses /
+#                       WebSocket frames (prompt-injection echo defense)
+#   - maxUnlockAttempts / lockoutBaseMs / lockoutMaxMs:
+#                       exponential unlock lockout against online guessing
+#   - shipped-code integrity self-check (fail-closed, see npm run integrity)
 - id: credentials
   disabled: true
 
@@ -21,3 +29,9 @@
         # Keep the inherited environment and .env fallback layers (read-only,
         # ranked above the managed file). Set false for a strict file-only policy.
         allowEnvFallback: true
+        # leakGuard: true
+        # leakMinMaskLength: 8
+        # leakMaxMaskLength: 256
+        # maxUnlockAttempts: 5
+        # lockoutBaseMs: 30000
+        # lockoutMaxMs: 900000
