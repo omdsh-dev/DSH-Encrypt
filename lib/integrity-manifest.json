@@ -2,24 +2,14 @@
   "format": "dsh-encrypt-integrity",
   "version": 1,
   "files": {
-<<<<<<< HEAD
-    "cordis.patch.yml": "14b9948fb9de388a7b9c4690a9ea58c6310559253049eb2770b90d8ec56eee77",
-    "lib/client.js": "3fa003a87a42314d6d0ff896caaa53acf1c0a930e36beffed5a36634088c1dcb",
-    "lib/index.js": "5c21762e6c19ded71e52a8ec3051f3f4a78f04dfb74a6820f0fa9166d3c29d92",
+    "cordis.patch.yml": "1ae9736eeff7d2af28fc58e3c0ba6c6d84ad081b69d9af8d45782acaccf6214d",
+    "lib/client.js": "b40cc4e69fce2263ddb0e181b5036f6422cdb8eca6c0773797ca05bbff2733ed",
+    "lib/index.js": "de1ca11f34a6e8bcb9d5a4b9c48451f279e7fa63ac0fd99d2199d7a78b593a06",
     "lib/integrity.js": "000587e9e412a35a9faea5ebd8213bcb7a63beea0de5b553e517de5dd08b5a31",
     "lib/leak-guard.js": "bb36e8269426806f2a241c72b8280d80bfd6dee41aaa81f96f34b4835a6528cc",
     "lib/lockout.js": "e6176acefc144362ba825119cefb434c61c399bc1bb67906373368397d043a65",
-    "lib/vault.js": "43b7eccff4d91830535263da1de067316186b7586190c72476a02c1f75e8b714",
-    "lib/web.js": "b6a7175915288b5e296e319230eae16dac13826ceb0a653d213e49e1a9e1e173"
-=======
-    "cordis.patch.yml": "d1be286fb6b44199785034f022aa56b1c91b966786fd0879a809cece7a4a4101",
-    "lib/client.js": "9ac5cadb1d64d78e984d6a62f2c9f16868bcb8ac437dd558a78ffe0910696c68",
-    "lib/index.js": "be9378c922377422bc6074a92d2e1bf92b255844b5eeadd8105a673a7f5bc757",
-    "lib/integrity.js": "f82d0bf425b728725264832b4a808d80228dfb88859f60b836e0ecc284762251",
-    "lib/leak-guard.js": "1d2b94a44686b50813b2d54af5bbd8b7c42327a91d895cfd4f3620596d56f0a8",
-    "lib/lockout.js": "5bbf06fef7c28b4d3b35e76ce8cd3c153dc16c5899c5973977404ccdecc86263",
-    "lib/vault.js": "bd23fa3c5c55f414734d746d0b9e76a1e7c475161c6ccea0fa3438bb04d3230f",
-    "lib/web.js": "959f0e44a4598df5620133a5d8329c37bac343c3dff937c94792c4f745b1a623"
->>>>>>> 5627b1b9da4ef09082114d3c69fcf0931a962275
+    "lib/trust.js": "55fca7a596abb15f8a4692183dc736a43662b5aab23669670626ee2dbdbaf879",
+    "lib/vault.js": "b862779ac603290e5d753cbe6545aa4da56935266da18294f980ba7480867aec",
+    "lib/web.js": "ef5ff4030585b52df91ccb898daad1971b09858f7e7c36fa7704a9c9d2ea849e"
   }
 }

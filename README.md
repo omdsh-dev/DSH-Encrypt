@@ -25,7 +25,7 @@ DSH 默认的凭证存储把密钥以**明文 YAML** 写在 `$DSH_HOME/.credenti
 - **解锁爆破锁定**：连续密码解锁失败计数持久化到状态文件（重启不清零），达到阈值（默认 5 次）后指数退避锁定（30 s 起，2 倍递增，上限 15 min），WebUI 显示剩余锁定时间，HTTP 返回 429 + `Retry-After`
 - **凭证泄露检测与输出脱敏（Leak Guard）**：模型实际解析过的凭证值会被登记为掩码模式——WebUI 的 HTTP 响应体与 WebSocket 事件帧在离开主机前扫描并替换为 `[REDACTED:dsh-encrypt]`，提示词注入诱导模型回显密钥时也会被脱敏
 - **发行代码完整性自校验**：打包时生成 `lib/integrity-manifest.json`（所有发行文件的 SHA3-256），启动时逐文件校验、不一致即拒绝加载（fail-closed），覆盖 provider 行与浏览器面板包；哈希对行尾/BOM 归一化，git 克隆（CRLF↔LF）与 tarball 安装校验一致，真实代码篡改仍会被拦截
-- **免密登录滑块**：设置「多少天免密」（0 = 每次都输密码 / 1–30 天 / 永远，刻度仅保留头尾），解锁成功后签发 256 位票据（HttpOnly Cookie + 响应体回传，浏览器同时存 localStorage 并随 `x-dsh-encrypt-remember` 请求头回传，不再依赖 Cookie 存取可靠性）；**打开 WebUI 即自动尝试免密解锁**（localhost 专属），磁盘只存被 AEAD 包裹的密钥副本；到期或票据不匹配即失效
+- **免密登录滑块**：设置「多少天免密」（0 = 每次都输密码 / 1–30 天 / 永远，刻度仅保留头尾），解锁成功后签发 256 位票据，**默认仅经 HttpOnly Cookie 下发**（响应体不回传、浏览器无 JS 可读副本）；`rememberChannel: "header"` 可显式改回响应体回传 + localStorage + `x-dsh-encrypt-remember` 请求头通道（XSS 可读票据，仅用于 Cookie 存取异常的 WebView）；**打开 WebUI 即自动尝试免密解锁**（本机专属），磁盘只存被 AEAD 包裹的密钥副本；到期或票据不匹配即失效
 - **仅 localhost 免密与改密**：非本机访问强制每次都输密码，且不能设置/修改密码（后端强制，返回 `LOCAL_ONLY`）
 - **永远密文（ciphertext-only）**：一旦设置密码，文件永不回退明文——「移除密码」功能已移除；外部把文件改回明文时，解锁态下自动重新加密写回，锁定态下拒绝采用并保留最后密文快照；重启后若文件被替换成明文，凭证解析被拒绝（`plaintextForbidden`）直到重新设置密码
 - **阅后即焚**：密文只在被使用的那一刻解密；解密中间 Buffer 立即清零，新增 `withUnlockedBuffer` 擦除式接口（回调结束后在 finally 中焚毁明文副本），改密时的明文集合用后即清空，密钥在锁定/卸载时清零
@@ -81,6 +81,22 @@ bundle patch 只插入 provider 行；浏览器密码路由是独立组合行，
 - insert:
     - id: dsh-encrypt-web
       name: 'dsh-encrypt/web'
+      config:
+        # LAN 部署（webServer 绑定 0.0.0.0）时必须列出本机 LAN 权威来源，
+        # 否则凭证路由对非回环 Host 一律 403；与 client-connection 的
+        # trustedHosts 保持一致。回环绑定无需配置。
+        trustedHosts: []
+```
+
+LAN 部署推荐与官方 `connection` 行同源取值（LAN 字面量 + `--trusted-host`），写法与官方 web-app bundle 的 `connection` 行一致——注意 `dsh-encrypt/web` 插件自身只注入 `webServer`/`credentials`，`!!js` 表达式引用 `ctx.webRuntime` 时必须加**行级 `inject: [webRuntime]`**，否则加载器解析配置时会抛 `cannot get property "webRuntime" without inject`：
+
+```yaml
+- insert:
+    - id: dsh-encrypt-web
+      name: 'dsh-encrypt/web'
+      inject: [webRuntime]
+      config:
+        trustedHosts: !!js '[...ctx.webRuntime.trustedHosts, "app.internal.example"]'
 ```
 
 ### 3. 验证安装
@@ -134,7 +150,7 @@ DSH_CREDENTIAL_PASSWORD='<密码>' dsh run "运行一次最小任务验证凭证
 | 修改密码 | 加密+解锁 | 全部条目在新密钥下重加密 |
 | 免密登录时长（滑块） | 任意 | 0 = 每次都输密码；1–30 = N 天内免密；31 = 永远免密（均仅本机） |
 
-滑块即改即存（松开即提交到 `/api/credentials.config`，只接受 localhost；刻度只显示「每次」与「永远」两头）。解锁成功后按当前滑块时长签发免密票据；改动滑块会作废旧票据，若当前已解锁则立即按新时长重新签发。**打开 WebUI 时自动尝试免密解锁**（localhost 专属），免密期间无需输密码；到期后回到密码解锁。**非 localhost 访问始终需要输入密码，且不显示改密入口**（后端同样强制）。
+滑块即改即存（松开即提交到 `/api/credentials.config`，只接受本机 Host；刻度只显示「每次」与「永远」两头）。解锁成功后按当前滑块时长签发免密票据（默认仅 HttpOnly Cookie）；改动滑块会作废旧票据，若当前已解锁则立即按新时长重新签发。**打开 WebUI 时自动尝试免密解锁**（本机专属），免密期间无需输密码；到期后回到密码解锁。**非本机访问始终需要输入密码，且不显示改密入口**（后端同样强制）。
 
 **永远密文**：设置密码后没有「移除密码」路径——文件永为密文。若凭证文件被人替换成明文，解锁状态下会被立即重新加密写回；若发生在锁定/重启期间，凭证解析暂停（面板显示警告），重新设置密码即恢复（原有凭证内容保留）。
 
@@ -197,23 +213,23 @@ OPENCODE_GO_API_KEY: sk-…
 - `kdf: "argon2id"`：主密钥 = Argon2id(密码的 SHA3-256 摘要, salt, m/t/p)，`m` 单位 KiB；原始密码不进后端
 - **旧版兼容**：v2 文档（`kdf: "scrypt"`，字段 `n/r/p`）仍可解析与解锁，用自身存储的 scrypt 参数派生；下一次密码解锁成功时自动原地升级为 v3 Argon2id 格式（免密票据随旧密钥一起作废）
 - `verifier` 是固定明文的 AEAD 密文，用于在不接触任何真实凭证的前提下校验摘要
-- `remember` 仅在签发过免密票据时存在：`cipher` 是在票据密钥（SHA3-256(域名‖salt‖票据)）下 AEAD 包裹的主密钥；票据本身只存在于浏览器 HttpOnly Cookie，永不落盘；`days: -1` 表示永远
+- `remember` 仅在签发过免密票据时存在：`cipher` 是在票据密钥（SHA3-256(域名‖salt‖票据)）下 AEAD 包裹的主密钥；票据本身只存在于浏览器（默认 HttpOnly Cookie；`rememberChannel: "header"` 时才另存 localStorage），永不落盘；`days: -1` 表示永远
 - 文档级指纹覆盖 `sha3` 以外的全部字段（含 salt、成本参数与 remember 块）；条目级指纹覆盖各自的密文 blob
 - 密码与票据从不落盘
 
 ## HTTP 路由（web 行）
 
-仅 `POST application/json`（与官方 /api 相同的跨站写护栏）；响应 `{ ok: true, value }` 或 `{ ok: false, code, message }`，错误消息不含密码或任何密钥材料：
+仅 `POST application/json`（与官方 /api 相同的跨站写护栏），且全部路由先过 **Host 头信任围栏**（与官方 /api 同语义，防 DNS rebinding）：Host 必须解析为回环主机名（`localhost` / `[::1]` / 127/8）或命中 web 行配置的 `trustedHosts`，否则 **403 `FORBIDDEN_HOST`**；改密与免密设置进一步**钉死回环 Host**（不给 `trustedHosts` 例外）。响应 `{ ok: true, value }` 或 `{ ok: false, code, message }`，错误消息不含密码或任何密钥材料：
 
 | 路径 | 请求体 | 作用 |
 | :-- | :-- | :-- |
-| `/api/credentials.status` | `{}` | 返回 `{ format, unlocked, plaintextForbidden, local, remember, ticketRejected, lockout, leakGuard }`；localhost 且携带免密票据（`x-dsh-encrypt-remember` 请求头或 Cookie）时先尝试票据解锁 |
-| `/api/credentials.unlock` | `{ digest }` | 密码摘要解锁（64 位小写 hex SHA3-256）；localhost 成功后再按滑块签发免密票据（票据随响应体 `ticket` 字段回传）；失败次数过多时返回 **429** + `Retry-After`（`TOO_MANY_ATTEMPTS`） |
-| `/api/credentials.set-password` | `{ digest }` | 明文 → 密文（**仅 localhost**），并写入密文策略标记 |
-| `/api/credentials.change-password` | `{ digest }` | 重加密（需已解锁，**仅 localhost**，作废旧票据并签发新票据） |
-| `/api/credentials.config` | `{ action: "get" }` / `{ action: "set", rememberDays }` | 读取状态或设置免密天数（-1 = 永远，0 = 每次，1–30；**set 仅 localhost**，签发新票据时随响应回传） |
+| `/api/credentials.status` | `{}` | 返回 `{ format, unlocked, plaintextForbidden, local, remember, ticketRejected, lockout, leakGuard, rememberChannel }`；本机且携带免密票据（Cookie；`rememberChannel: "header"` 时也接受 `x-dsh-encrypt-remember` 请求头）时先尝试票据解锁 |
+| `/api/credentials.unlock` | `{ digest }` | 密码摘要解锁（64 位小写 hex SHA3-256）；本机成功后再按滑块签发免密票据（HttpOnly Cookie；`rememberChannel: "header"` 时才随响应体 `ticket` 字段回传）；失败次数过多时返回 **429** + `Retry-After`（`TOO_MANY_ATTEMPTS`） |
+| `/api/credentials.set-password` | `{ digest }` | 明文 → 密文（**仅本机 Host**），并写入密文策略标记 |
+| `/api/credentials.change-password` | `{ oldDigest, digest }` | 重加密（需已解锁且**证明当前口令** `oldDigest`，**仅本机 Host**，作废旧票据并签发新票据） |
+| `/api/credentials.config` | `{ action: "get" }` / `{ action: "set", rememberDays }` | 读取状态或设置免密天数（-1 = 永远，0 = 每次，1–30；**set 仅本机 Host**，header 模式签发新票据时随响应回传） |
 
-所有路由只接受 `POST application/json`。密码本身永不出现在任何请求体里——浏览器只提交 `digest`（可用 `node -p "require('crypto').createHash('sha3-256').update('密码').digest('hex')"` 计算）。
+所有路由只接受 `POST application/json`。密码本身永不出现在任何请求体里——浏览器只提交 `digest`（可用 `node -p "require('crypto').createHash('sha3-256').update('密码').digest('hex')"` 计算）；改密额外提交 `oldDigest`。
 
 headless 组合不挂载 web 行，因此没有 HTTP 面。
 
@@ -244,6 +260,7 @@ config:
 | `watch` | boolean | `true` | 是否监听文件热重载 |
 | `debounceMs` | number | `100` | 热重载防抖毫秒数（≥ 0） |
 | `rememberDays` | number | `0` | 免密登录天数：`0` = 每次都输密码，`1..30` 天，`-1` = 永远（补丁配置的初始值；滑块运行时值写入 `$DSH_HOME/.dsh-encrypt.json` 并优先生效） |
+| `rememberChannel` | string | `"cookie"` | 免密票据通道：`"cookie"` = 仅 HttpOnly Cookie（默认，推荐）；`"header"` = 响应体回传 + localStorage + `x-dsh-encrypt-remember` 请求头（XSS 可读，仅用于 Cookie 存取异常的 WebView） |
 | `leakGuard` | boolean | `true` | 泄露检测与输出脱敏总开关（关闭后 HTTP/WS 输出不再扫描） |
 | `leakMinMaskLength` | number | `8` | 参与脱敏的最小值长度（4–64；更短的值视为普通文本） |
 | `leakMaxMaskLength` | number | `256` | 参与脱敏的最大值长度（16–1024；同时是流式脱敏的跨块回看窗口） |
@@ -264,6 +281,8 @@ config:
 - POSIX 上凭证文件必须是 owner-only（`0600`），否则启动直接拒绝（`chmod 600` 修复）；Windows 无 mode 可查，保护由创建 API 与 OS ACL 表达
 - **防爆破**：连续解锁失败计数 + 指数退避锁定，计数持久化（重启不清零）；接口返回 429 + `Retry-After`，面板显示剩余时间
 - **防注入回显（Leak Guard）**：模型解析过的凭证值成为掩码模式；WebUI 的 HTTP 响应体与 WebSocket 文本帧在离开主机前被替换为 `[REDACTED:dsh-encrypt]`（分块边界安全的流式脱敏，绝不先漏出前缀）
+- **防 DNS rebinding（Host 围栏）**：所有路由以请求的 Host 头判定信任来源（回环主机名或配置的 `trustedHosts`），与官方 /api 围栏同语义；仅本机操作（改密/免密设置/票据签发与消费）钉死回环 Host，恶意域名解析到 127.0.0.1 的 rebinding 请求被 403 拒绝
+- **改密需证明当前口令**：`change-password` 先以 `oldDigest` 校验 AEAD 验证器，解锁态不足以接管凭证库；错误的旧口令计入解锁锁定计数
 - **防篡改/防逆向侧**：启动时对发行代码做 SHA3-256 完整性自校验，任何字节不一致即拒绝加载（fail-closed）；覆盖 provider 行、web 行与浏览器面板包
 
 **诚实边界**：
@@ -275,6 +294,9 @@ config:
 - **锁定计数存在状态文件**：同一 OS 用户可编辑 `.dsh-encrypt.json` 重置计数——锁定防的是「在线猜密码」，不是同账户内的自我解锁
 - **脱敏只覆盖本插件已知的值**：仅模型实际解析过的凭证会被掩码；模型把密钥通过工具调用（bash/web_search/网络请求）外传不属于输出脱敏的覆盖范围，那属于 permission/tools 层职责；二进制 WS 帧与静态资源不做扫描；把密钥拆分/转码后再输出可绕过子串匹配
 - **脱敏掩码集在解锁期间驻留内存**（仅已解析值，锁定/改密/卸载即清空）——这是"掩码输出"与"不缓存明文"之间的有意识取舍
+- **摘要即口令等价物**：浏览器提交的 SHA3-256 摘要就是持久解锁凭证——任何人捕获一次即可解锁直到改密；它经明文 HTTP 传输，回环绑定下仅暴露给本机进程，若绑定 LAN 请前置 TLS 反向代理（本插件不自带 TLS）
+- **`rememberChannel: "header"` 的票据对页面脚本可读**：该兼容通道（默认关闭）会把 256 位票据放入 localStorage，页面被 XSS 即可窃取；默认的 HttpOnly Cookie 通道无此暴露面
+- **锁定计数为全局**：任何能到达解锁接口的客户端故意输错 5 次即可反向锁定合法用户（指数退避、重启不清零），属在线猜口令防御的固有代价
 - 锁定态下未注册任何掩码（无明文可知），但也没有任何凭证会被解析出去，泄露面为零
 
 ## 错误码
@@ -285,7 +307,8 @@ config:
 | :-- | :-- |
 | `PASSWORD_WRONG` | 摘要与验证器不匹配（错误密码在触碰任何条目之前即被拒绝） |
 | `PASSWORD_INVALID` | 摘要不是 64 位小写 hex 的 SHA3-256 |
-| `LOCAL_ONLY` | 该操作（改密/移除密码/免密设置）仅允许 localhost |
+| `LOCAL_ONLY` | 该操作（改密/免密设置/票据签发）仅允许回环 Host |
+| `FORBIDDEN_HOST` | 请求的 Host 不是受信来源（非回环且不在 `trustedHosts`），已拒绝（HTTP 403） |
 | `REMEMBER_EXPIRED` | 免密票据已超过其窗口，需重新输入密码 |
 | `REMEMBER_INVALID` | 免密票据与本凭证库不匹配（或库中无票据） |
 | `VAULT_LOCKED` | 凭证库已锁定；在「设置 → 加密安全」解锁（或导出 `DSH_CREDENTIAL_PASSWORD`） |
@@ -304,6 +327,7 @@ config:
 - **v0.1.0-rc.7 → rc.8**：移除「移除密码」并启用永远密文策略（外部明文替换会被重新加密/拒绝）；免密票据增加 localStorage + 请求头通道并在打开 WebUI 时自动触发；新增阅后即焚（`decryptEntryBuffer` / `withUnlockedBuffer`）
 - **v0.1.0-rc.8 → rc.9**：KDF 从 scrypt 切换为 **Argon2id**（文档升级 v3，字段 `m/t/p`）；v2 scrypt 密文仍可解锁，成功解锁时原地自动升级，无需手工迁移。新增解锁爆破锁定（429 + 指数退避）、凭证泄露检测与输出脱敏（HTTP/WS）、发行代码完整性自校验（fail-closed）。注意新增原生依赖 `@node-rs/argon2`
 - **v0.1.0-rc.9 → rc.10**：修复完整性自校验对行尾敏感的 bug——rc.9 的清单按打包机的原始字节（CRLF/LF 混用）生成，git 克隆或源码目录安装到行尾不同的平台时会误报 `INTEGRITY_FAILED`；rc.10 起哈希前归一化（去 BOM、CRLF→LF），另附 `.gitattributes` 固定 LF。已装 rc.9 的用户请重新安装 rc.10 的 tarball
+- **v0.1.0-rc.10 → rc.11**：安全加固——① 所有路由增加 **Host 头信任围栏**（防 DNS rebinding，语义对齐官方 /api；LAN 部署需在 `dsh-encrypt-web` 行配置 `trustedHosts`）；② 免密票据默认**仅 HttpOnly Cookie**，响应体不再回传（`rememberChannel: "header"` 可显式回退；升级后旧 localStorage 副本自动清理并作废）；③ `change-password` 必须携带 `oldDigest` 证明当前口令（WebUI 新增「当前密码」输入框）；④ 「本机」判定全部改由 Host 头完成
 - 与官方 `credentials` 接缝 **drop-in**：LLM 适配器、Models 页、web-search 等消费者零改动
 - 官方凭证 RPC（如 `credentials.set`）在两种形态下照常工作；锁定状态下写入会以 `VAULT_LOCKED` 拒绝
 - 明文形态文件可被 `dsh-credentials-local` 直接读取——移除本插件前先「移除密码」即可无缝回退
