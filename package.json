@@ -1,6 +1,6 @@
 {
   "name": "dsh-encrypt",
-  "version": "0.1.0-rc.9",
+  "version": "0.1.0-rc.10",
   "description": "WebUI-managed encrypted credentials for DeepSeek Harness: one file, plaintext until a password is set, then AES-256-GCM ciphertext under an Argon2id-derived key with SHA3-256 fingerprints; per-request decryption, unlock lockout, leak-guard output redaction, and shipped-code integrity self-checks.",
   "type": "module",
   "main": "lib/index.js",

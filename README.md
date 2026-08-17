@@ -5,7 +5,7 @@
 | 项目 | 值 |
 | :-- | :-- |
 | 形态 | **bundle**（`dsh.bundle.patch` → `cordis.patch.yml`，随 profile 启动，`dsh plugin add` 原生安装） |
-| 版本 | `0.1.0-rc.9` |
+| 版本 | `0.1.0-rc.10` |
 | 依赖线 | npm rc.1（`@deepseek-ai/cordis@^4.0.1` 等 scoped 包 + `@node-rs/argon2` 原生绑定） |
 | 环境 | Node.js ≥ 18（官方教程建议 22+）；DSH `@deepseek-ai/dsh@0.0.1-rc.1`+ |
 | License | [MIT](./LICENSE) |
@@ -24,7 +24,7 @@ DSH 默认的凭证存储把密钥以**明文 YAML** 写在 `$DSH_HOME/.credenti
 - **摘要校验（前后端分离）**：WebUI 用纯 JS Keccak-f[1600] 计算密码的 SHA3-256，只 POST `{ digest }` 到后端；后端用 Argon2id 拉伸摘要并与 AEAD 验证器匹配，原始密码不离开浏览器
 - **解锁爆破锁定**：连续密码解锁失败计数持久化到状态文件（重启不清零），达到阈值（默认 5 次）后指数退避锁定（30 s 起，2 倍递增，上限 15 min），WebUI 显示剩余锁定时间，HTTP 返回 429 + `Retry-After`
 - **凭证泄露检测与输出脱敏（Leak Guard）**：模型实际解析过的凭证值会被登记为掩码模式——WebUI 的 HTTP 响应体与 WebSocket 事件帧在离开主机前扫描并替换为 `[REDACTED:dsh-encrypt]`，提示词注入诱导模型回显密钥时也会被脱敏
-- **发行代码完整性自校验**：打包时生成 `lib/integrity-manifest.json`（所有发行文件的 SHA3-256），启动时逐文件校验、不一致即拒绝加载（fail-closed），覆盖 provider 行与浏览器面板包
+- **发行代码完整性自校验**：打包时生成 `lib/integrity-manifest.json`（所有发行文件的 SHA3-256），启动时逐文件校验、不一致即拒绝加载（fail-closed），覆盖 provider 行与浏览器面板包；哈希对行尾/BOM 归一化，git 克隆（CRLF↔LF）与 tarball 安装校验一致，真实代码篡改仍会被拦截
 - **免密登录滑块**：设置「多少天免密」（0 = 每次都输密码 / 1–30 天 / 永远，刻度仅保留头尾），解锁成功后签发 256 位票据（HttpOnly Cookie + 响应体回传，浏览器同时存 localStorage 并随 `x-dsh-encrypt-remember` 请求头回传，不再依赖 Cookie 存取可靠性）；**打开 WebUI 即自动尝试免密解锁**（localhost 专属），磁盘只存被 AEAD 包裹的密钥副本；到期或票据不匹配即失效
 - **仅 localhost 免密与改密**：非本机访问强制每次都输密码，且不能设置/修改密码（后端强制，返回 `LOCAL_ONLY`）
 - **永远密文（ciphertext-only）**：一旦设置密码，文件永不回退明文——「移除密码」功能已移除；外部把文件改回明文时，解锁态下自动重新加密写回，锁定态下拒绝采用并保留最后密文快照；重启后若文件被替换成明文，凭证解析被拒绝（`plaintextForbidden`）直到重新设置密码
@@ -56,13 +56,13 @@ DSH 默认的凭证存储把密钥以**明文 YAML** 写在 `$DSH_HOME/.credenti
 # 打包（files 字段仅含 lib 与 cordis.patch.yml，test/ 不入包；
 # prepack 会自动重新生成 lib/integrity-manifest.json）
 npm pack
-# → dsh-encrypt-0.1.0-rc.9.tgz
+# → dsh-encrypt-0.1.0-rc.10.tgz
 
 # web profile（设置页「加密安全」）
-dsh plugin --profile web add ./dsh-encrypt-0.1.0-rc.9.tgz
+dsh plugin --profile web add ./dsh-encrypt-0.1.0-rc.10.tgz
 
 # headless profile（一次性任务 / 自动化解锁；web 与 headless 是不同 profile，需分别安装）
-dsh plugin --profile headless add ./dsh-encrypt-0.1.0-rc.9.tgz
+dsh plugin --profile headless add ./dsh-encrypt-0.1.0-rc.10.tgz
 ```
 
 `@node-rs/argon2` 是带预编译二进制（napi-rs）的原生依赖，`dsh plugin add` 安装依赖时会拉取对应平台的 optionalDependencies；Node.js ≥ 18（建议 22+）。若安装后出现原生模块缺失（极少数平台组合），重新执行一次 `npm rebuild @node-rs/argon2` 即可。
@@ -303,6 +303,7 @@ config:
 - **v0.1.0-rc.6 → rc.7**：文档版本升级为 v2（KDF 输入从密码改为密码的 SHA3-256 摘要）。v1 密文文档无法被 rc.7 读取——升级前请先在旧版「移除密码」恢复明文，或删除 `.credentials.yaml` 重新配置；明文形态不受影响
 - **v0.1.0-rc.7 → rc.8**：移除「移除密码」并启用永远密文策略（外部明文替换会被重新加密/拒绝）；免密票据增加 localStorage + 请求头通道并在打开 WebUI 时自动触发；新增阅后即焚（`decryptEntryBuffer` / `withUnlockedBuffer`）
 - **v0.1.0-rc.8 → rc.9**：KDF 从 scrypt 切换为 **Argon2id**（文档升级 v3，字段 `m/t/p`）；v2 scrypt 密文仍可解锁，成功解锁时原地自动升级，无需手工迁移。新增解锁爆破锁定（429 + 指数退避）、凭证泄露检测与输出脱敏（HTTP/WS）、发行代码完整性自校验（fail-closed）。注意新增原生依赖 `@node-rs/argon2`
+- **v0.1.0-rc.9 → rc.10**：修复完整性自校验对行尾敏感的 bug——rc.9 的清单按打包机的原始字节（CRLF/LF 混用）生成，git 克隆或源码目录安装到行尾不同的平台时会误报 `INTEGRITY_FAILED`；rc.10 起哈希前归一化（去 BOM、CRLF→LF），另附 `.gitattributes` 固定 LF。已装 rc.9 的用户请重新安装 rc.10 的 tarball
 - 与官方 `credentials` 接缝 **drop-in**：LLM 适配器、Models 页、web-search 等消费者零改动
 - 官方凭证 RPC（如 `credentials.set`）在两种形态下照常工作；锁定状态下写入会以 `VAULT_LOCKED` 拒绝
 - 明文形态文件可被 `dsh-credentials-local` 直接读取——移除本插件前先「移除密码」即可无缝回退

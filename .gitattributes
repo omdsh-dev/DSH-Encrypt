@@ -1,0 +1,10 @@
+# Keep text files byte-stable across platforms: LF on every checkout, so
+# the shipped-code integrity manifest (SHA3-256) verifies identically after
+# git transports rewrite line endings.
+* text=auto eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.mjs text eol=lf
+*.tgz binary
