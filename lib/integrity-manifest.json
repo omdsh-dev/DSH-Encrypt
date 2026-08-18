@@ -4,12 +4,13 @@
   "files": {
     "cordis.patch.yml": "1ae9736eeff7d2af28fc58e3c0ba6c6d84ad081b69d9af8d45782acaccf6214d",
     "lib/client.js": "335707e0d89b571d8640b0a432a314977d64038532c1570680c94cf4b2fbc632",
-    "lib/index.js": "47fe5d665177f5ae28b53a831ddccbaaf9bddd201f673f3d96ff51025de8a810",
+    "lib/compat.js": "3ee5cc31ec0ad57eaef2a95f144855bf5f0c5867f4eaa5c4a6bb64849b6ba590",
+    "lib/index.js": "0ddf3553188e33bcf157b933f53747d0823826af82487bfd9ff66efbf158b37e",
     "lib/integrity.js": "000587e9e412a35a9faea5ebd8213bcb7a63beea0de5b553e517de5dd08b5a31",
     "lib/leak-guard.js": "bb36e8269426806f2a241c72b8280d80bfd6dee41aaa81f96f34b4835a6528cc",
     "lib/lockout.js": "e6176acefc144362ba825119cefb434c61c399bc1bb67906373368397d043a65",
     "lib/trust.js": "21beb3ab263eb6ff69dcd2c140a706956003befcef682fca311a948b50eacd67",
     "lib/vault.js": "b862779ac603290e5d753cbe6545aa4da56935266da18294f980ba7480867aec",
-    "lib/web.js": "952189197e1970223bc1679c39d4f50e601ba1ab333cddf3260c2e1add61edc9"
+    "lib/web.js": "fba26da561405ab4fb940ff6dbbf88f45eeb3faa82c1aeea82252b67270f0920"
   }
 }

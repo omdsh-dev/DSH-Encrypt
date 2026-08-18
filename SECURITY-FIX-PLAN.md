@@ -105,3 +105,13 @@ curl.exe -s -m 10 -w "`nHTTP:%{http_code}`n" -X POST http://127.0.0.1:3080/api/c
 - `index.js`：票据解锁成功时 `ctx.logger.info` 留痕。
 
 自检：`npm run integrity` 重建清单（client/index/web 哈希更新）；`npm test` 84/84 通过。
+
+## 系统与 dsh 分离（2026-08-18，部署架构改造）
+
+耦合现状核查：profile 根层与 e2e-home 各 195 个 @deepseek-ai junction 全部指向 npx 缓存（`npm cache clean` 即整体失效）；运行时 `@deepseek-ai/dsh@0.1.0-rc.7` 未钉版（npx 可浮动）。改造：
+
+- **`D:\Developments\DSH\dshenv`**：钉版运行时（package.json 精确 `0.1.0-rc.7`，锁文件由现网 npx 缓存导入，195/195 版本逐包核对一致，原生模块重建通过）；`dsh.cmd` 启动器；`link-profiles.ps1` 可重跑重指向脚本。
+- **junction 网重指向**：真实 profile 与 e2e-home 各 195 个 junction 全部改指 dshenv；`--dump-config` 组合验证通过（dsh-encrypt 行在）。
+- **插件侧**：接缝包（cordis/dsh-credentials/dsh-home-paths/dsh-launch-environment/dsh-atomic-write）改为精确钉版（无 ^）；新增 `lib/compat.js` 运行时兼容护栏——探测进程入口的 dsh 版本，同 0.1.x 线不同 rc 打警告，跨线抛 `UNSUPPORTED_DSH`（fail-loud，替代静默失效），provider 与 web 两行均接入；新增 `test/compat.test.js`（7 项）。
+- **验证**：`npm test` 91/91；dshenv 运行时启动真实 profile 冒烟（status 200，插件加载、compat 放行）；线上 3080 实例未受影响。
+- **SOP**：升级/回滚流程与支持矩阵见 README「系统与 dsh 的分离」与 dshenv\README.md。

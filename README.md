@@ -120,6 +120,35 @@ DSH_CREDENTIAL_PASSWORD='<密码>' dsh run "运行一次最小任务验证凭证
 
 仓库另附两阶段真实重启 e2e（见[开发与测试](#开发与测试)），覆盖 明文→设密→损坏/恢复→重启锁定→解锁→改密→移除密码 全生命周期。
 
+## 系统与 dsh 的分离（部署架构）
+
+dsh-encrypt 与 dsh 运行时**解耦**到三层，dsh 更新不再影响插件安装与加载：
+
+| 层 | 位置 | 谁决定它 | 更新方式 |
+| --- | --- | --- | --- |
+| 运行时 | `D:\Developments\DSH\dshenv`（钉版 `@deepseek-ai/dsh@0.1.0-rc.7`，无 `^`） | 显式编辑 `package.json` | 走升级 SOP（见下） |
+| 系统 | `$DSH_HOME\profiles`（bundle 栈 = 指向 dshenv 的 junction 网 + profile 锁文件） | `link-profiles.ps1` 重指向 | 仅当 dshenv 更新时重跑 |
+| 插件 | `D:\Developments\DSH\DSH-Encrypt`（源码 + 自持依赖树 + 自己的 package-lock.json，junction 挂进 profile） | 自己的锁文件 | 与 dsh 完全无关，随时独立开发/发布 |
+
+要点：
+
+- **运行时不再活在 npx 缓存**：`npm cache clean` 不会破坏 profile；`npx @deepseek-ai/dsh`（浮动）不再是启动方式，统一用 `dshenv\dsh.cmd web`；
+- **插件依赖树自持且精确钉版**：接缝包（`@deepseek-ai/cordis`/`dsh-credentials`/`dsh-home-paths`/`dsh-launch-environment`/`dsh-atomic-write`）为精确版本（无 `^`），与运行时同线；独立包（argon2/chokidar/yaml/schemastery）保持范围；
+- **兼容护栏（fail-loud）**：插件加载时探测运行中 dsh 的版本——同 0.1.x 线不同 rc 打警告（提示先跑测试），跨线直接抛 `UNSUPPORTED_DSH` 并给出升级指引，绝不静默失效；
+- **支持矩阵**：dsh-encrypt rc.12 ↔ dsh `0.1.0-rc.7` 线 ↔ 接缝 rc.6/4.0.1（当前实测组合）。
+
+### 升级 SOP（dsh 更新时）
+
+1. 编辑 `dshenv\package.json` 版本号 → `npm install`；
+2. `cd DSH-Encrypt && npm test`（91 项）确认插件不受影响；
+3. `powershell -File dshenv\link-profiles.ps1 -ProfilesRoot "C:\Users\Yu\.dsh\profiles"`（e2e-home 同理）；
+4. `node dshenv\node_modules\@deepseek-ai\dsh\lib\bin.js --profile web --dump-config` 冒烟；
+5. 重启 `dshenv\dsh.cmd web`。若报 `UNSUPPORTED_DSH`：版本线不兼容，回退 dshenv 版本或先升级插件。
+
+### 回滚 SOP
+
+`dshenv\package.json` 改回 `0.1.0-rc.7` → `npm install` → 重跑 link-profiles.ps1 → 重启。
+
 ### 5. 手动安装与旧版本兼容（仅调试场景）
 
 手动 patch 只作为旧快照兼容或调试方案，不是默认安装流程。完整手动层：
