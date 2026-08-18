@@ -1,0 +1,72 @@
+/** Small validation primitives implemented without regular expressions. */
+
+/** Whether a value is a non-array object. */
+export function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Whether a string contains only ASCII decimal digits. */
+export function isAsciiDigits(value: string): boolean {
+  if (value.length === 0) return false
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code < 48 || code > 57) return false
+  }
+  return true
+}
+
+/** Whether a value is an ASCII hexadecimal string of the requested length. */
+export function isAsciiHex(value: unknown, length?: number): value is string {
+  if (typeof value !== 'string' || value.length === 0 || (length !== void 0 && value.length !== length)) return false
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    const digit = code >= 48 && code <= 57
+    const upper = code >= 65 && code <= 70
+    const lower = code >= 97 && code <= 102
+    if (!digit && !upper && !lower) return false
+  }
+  return true
+}
+
+/** Whether a value is a lowercase ASCII hexadecimal string of the requested length. */
+export function isAsciiLowerHex(value: unknown, length?: number): value is string {
+  if (typeof value !== 'string' || value.length === 0 || (length !== void 0 && value.length !== length)) return false
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    const digit = code >= 48 && code <= 57
+    const lower = code >= 97 && code <= 102
+    if (!digit && !lower) return false
+  }
+  return true
+}
+
+/** Whether a value follows the credential-reference grammar. */
+export function isCredentialReference(value: string): boolean {
+  if (value.length === 0) return false
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    const upper = code >= 65 && code <= 90
+    const lower = code >= 97 && code <= 122
+    const underscore = code === 95
+    if (index === 0) {
+      if (!upper && !lower && !underscore) return false
+      continue
+    }
+    const digit = code >= 48 && code <= 57
+    if (!upper && !lower && !underscore && !digit) return false
+  }
+  return true
+}
+
+/** Remove repeated trailing instances of one character. */
+export function trimTrailingCharacter(value: string, character: string): string {
+  if (character.length !== 1) throw new TypeError('character must contain exactly one code unit')
+  let end = value.length
+  while (end > 0 && value[end - 1] === character) end -= 1
+  return value.slice(0, end)
+}
+
+/** Fold CRLF and lone CR line endings into LF. */
+export function normalizeLineEndings(value: string): string {
+  return value.replaceAll('\r\n', '\n').replaceAll('\r', '\n')
+}
