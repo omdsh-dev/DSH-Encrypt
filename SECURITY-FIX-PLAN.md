@@ -95,3 +95,13 @@ curl.exe -s -m 10 -w "`nHTTP:%{http_code}`n" -X POST http://127.0.0.1:3080/api/c
 验证：`npm test` 84/84 通过；`npm run integrity` 重建清单（lib/index.js、lib/trust.js、lib/web.js 哈希已更新）；`npm pack` 产出 dsh-encrypt-0.1.0-rc.12.tgz。
 
 部署：本机 profile 为源码 junction，重启 `dsh web` 即生效（无需重新 `dsh plugin add`）。
+
+### rc.12 免密登录排查补充（2026-08-18 晚）
+
+线上复现（隔离实例 3199 + curl cookie jar）证明 rc.12 服务器端票据链路完全正常（签发 → Set-Cookie → 重启 → 带 Cookie 自动解锁）。用户侧“浏览器有 Cookie 但重启后仍锁定”定位到自动解锁触发面与服务端可观测性缺口，已补：
+
+- `client.js`：标签页跨服务重启保持打开时，**visibilitychange（重新可见）与 focus 时自动重 ping status**——之前只在页面加载时 ping，切终端重启服务后切回页面不会触发免密解锁；下次重启后 F5 一次加载新 bundle，之后切回页面即可。
+- `web.js`：票据被拒（REMEMBER_EXPIRED/INVALID）时 `ctx.logger.warn` 留痕（此前静默清除 Cookie，无法区分“没带票据”与“票据被拒”）。
+- `index.js`：票据解锁成功时 `ctx.logger.info` 留痕。
+
+自检：`npm run integrity` 重建清单（client/index/web 哈希更新）；`npm test` 84/84 通过。
