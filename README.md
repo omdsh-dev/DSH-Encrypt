@@ -5,7 +5,7 @@
 | 项目 | 值 |
 | :-- | :-- |
 | 形态 | **bundle**（`dsh.bundle.patch` → `cordis.patch.yml`，随 profile 启动，`dsh plugin add` 原生安装） |
-| 版本 | `0.1.0-rc.10` |
+| 版本 | `0.1.0-rc.12` |
 | 依赖线 | npm rc.1（`@deepseek-ai/cordis@^4.0.1` 等 scoped 包 + `@node-rs/argon2` 原生绑定） |
 | 环境 | Node.js ≥ 18（官方教程建议 22+）；DSH `@deepseek-ai/dsh@0.0.1-rc.1`+ |
 | License | [MIT](./LICENSE) |
@@ -26,7 +26,7 @@ DSH 默认的凭证存储把密钥以**明文 YAML** 写在 `$DSH_HOME/.credenti
 - **凭证泄露检测与输出脱敏（Leak Guard）**：模型实际解析过的凭证值会被登记为掩码模式——WebUI 的 HTTP 响应体与 WebSocket 事件帧在离开主机前扫描并替换为 `[REDACTED:dsh-encrypt]`，提示词注入诱导模型回显密钥时也会被脱敏
 - **发行代码完整性自校验**：打包时生成 `lib/integrity-manifest.json`（所有发行文件的 SHA3-256），启动时逐文件校验、不一致即拒绝加载（fail-closed），覆盖 provider 行与浏览器面板包；哈希对行尾/BOM 归一化，git 克隆（CRLF↔LF）与 tarball 安装校验一致，真实代码篡改仍会被拦截
 - **免密登录滑块**：设置「多少天免密」（0 = 每次都输密码 / 1–30 天 / 永远，刻度仅保留头尾），解锁成功后签发 256 位票据，**默认仅经 HttpOnly Cookie 下发**（响应体不回传、浏览器无 JS 可读副本）；`rememberChannel: "header"` 可显式改回响应体回传 + localStorage + `x-dsh-encrypt-remember` 请求头通道（XSS 可读票据，仅用于 Cookie 存取异常的 WebView）；**打开 WebUI 即自动尝试免密解锁**（本机专属），磁盘只存被 AEAD 包裹的密钥副本；到期或票据不匹配即失效
-- **仅 localhost 免密与改密**：非本机访问强制每次都输密码，且不能设置/修改密码（后端强制，返回 `LOCAL_ONLY`）
+- **仅本机免密与改密**：「本机」由 Host 回环 **且** 连接 socket 回环双重判定——非本机访问强制每次都输密码，且不能设置/修改密码（后端强制，返回 `LOCAL_ONLY`；LAN 客户端伪造回环 Host 会被 socket 校验拦截）
 - **永远密文（ciphertext-only）**：一旦设置密码，文件永不回退明文——「移除密码」功能已移除；外部把文件改回明文时，解锁态下自动重新加密写回，锁定态下拒绝采用并保留最后密文快照；重启后若文件被替换成明文，凭证解析被拒绝（`plaintextForbidden`）直到重新设置密码
 - **阅后即焚**：密文只在被使用的那一刻解密；解密中间 Buffer 立即清零，新增 `withUnlockedBuffer` 擦除式接口（回调结束后在 finally 中焚毁明文副本），改密时的明文集合用后即清空，密钥在锁定/卸载时清零
 - **按请求解密**：明文只存活于单次操作，不缓存、不进日志；密钥在锁定/卸载时清零
@@ -56,13 +56,13 @@ DSH 默认的凭证存储把密钥以**明文 YAML** 写在 `$DSH_HOME/.credenti
 # 打包（files 字段仅含 lib 与 cordis.patch.yml，test/ 不入包；
 # prepack 会自动重新生成 lib/integrity-manifest.json）
 npm pack
-# → dsh-encrypt-0.1.0-rc.10.tgz
+# → dsh-encrypt-0.1.0-rc.12.tgz
 
 # web profile（设置页「加密安全」）
-dsh plugin --profile web add ./dsh-encrypt-0.1.0-rc.10.tgz
+dsh plugin --profile web add ./dsh-encrypt-0.1.0-rc.12.tgz
 
 # headless profile（一次性任务 / 自动化解锁；web 与 headless 是不同 profile，需分别安装）
-dsh plugin --profile headless add ./dsh-encrypt-0.1.0-rc.10.tgz
+dsh plugin --profile headless add ./dsh-encrypt-0.1.0-rc.12.tgz
 ```
 
 `@node-rs/argon2` 是带预编译二进制（napi-rs）的原生依赖，`dsh plugin add` 安装依赖时会拉取对应平台的 optionalDependencies；Node.js ≥ 18（建议 22+）。若安装后出现原生模块缺失（极少数平台组合），重新执行一次 `npm rebuild @node-rs/argon2` 即可。
@@ -281,7 +281,7 @@ config:
 - POSIX 上凭证文件必须是 owner-only（`0600`），否则启动直接拒绝（`chmod 600` 修复）；Windows 无 mode 可查，保护由创建 API 与 OS ACL 表达
 - **防爆破**：连续解锁失败计数 + 指数退避锁定，计数持久化（重启不清零）；接口返回 429 + `Retry-After`，面板显示剩余时间
 - **防注入回显（Leak Guard）**：模型解析过的凭证值成为掩码模式；WebUI 的 HTTP 响应体与 WebSocket 文本帧在离开主机前被替换为 `[REDACTED:dsh-encrypt]`（分块边界安全的流式脱敏，绝不先漏出前缀）
-- **防 DNS rebinding（Host 围栏）**：所有路由以请求的 Host 头判定信任来源（回环主机名或配置的 `trustedHosts`），与官方 /api 围栏同语义；仅本机操作（改密/免密设置/票据签发与消费）钉死回环 Host，恶意域名解析到 127.0.0.1 的 rebinding 请求被 403 拒绝
+- **防 DNS rebinding（Host 围栏）**：所有路由以请求的 Host 头判定信任来源（回环主机名或配置的 `trustedHosts`），与官方 /api 围栏同语义；仅本机操作（改密/免密设置/票据签发与消费）钉死回环连接（Host 回环 **且** socket 回环）——恶意域名解析到 127.0.0.1 的 rebinding 请求被 Host 校验 403 拒绝，LAN 客户端伪造回环 Host 被 socket 校验拒绝
 - **改密需证明当前口令**：`change-password` 先以 `oldDigest` 校验 AEAD 验证器，解锁态不足以接管凭证库；错误的旧口令计入解锁锁定计数
 - **防篡改/防逆向侧**：启动时对发行代码做 SHA3-256 完整性自校验，任何字节不一致即拒绝加载（fail-closed）；覆盖 provider 行、web 行与浏览器面板包
 
@@ -295,6 +295,7 @@ config:
 - **脱敏只覆盖本插件已知的值**：仅模型实际解析过的凭证会被掩码；模型把密钥通过工具调用（bash/web_search/网络请求）外传不属于输出脱敏的覆盖范围，那属于 permission/tools 层职责；二进制 WS 帧与静态资源不做扫描；把密钥拆分/转码后再输出可绕过子串匹配
 - **脱敏掩码集在解锁期间驻留内存**（仅已解析值，锁定/改密/卸载即清空）——这是"掩码输出"与"不缓存明文"之间的有意识取舍
 - **摘要即口令等价物**：浏览器提交的 SHA3-256 摘要就是持久解锁凭证——任何人捕获一次即可解锁直到改密；它经明文 HTTP 传输，回环绑定下仅暴露给本机进程，若绑定 LAN 请前置 TLS 反向代理（本插件不自带 TLS）
+- **服务端无法校验密码强度**：后端只见 SHA3-256 摘要，无法得知口令长度与复杂度——「至少 8 个字符」仅由 WebUI 前端强制，直连 API 可设置任意弱口令；摘要即口令，请自行保证口令强度
 - **`rememberChannel: "header"` 的票据对页面脚本可读**：该兼容通道（默认关闭）会把 256 位票据放入 localStorage，页面被 XSS 即可窃取；默认的 HttpOnly Cookie 通道无此暴露面
 - **锁定计数为全局**：任何能到达解锁接口的客户端故意输错 5 次即可反向锁定合法用户（指数退避、重启不清零），属在线猜口令防御的固有代价
 - 锁定态下未注册任何掩码（无明文可知），但也没有任何凭证会被解析出去，泄露面为零
@@ -328,6 +329,7 @@ config:
 - **v0.1.0-rc.8 → rc.9**：KDF 从 scrypt 切换为 **Argon2id**（文档升级 v3，字段 `m/t/p`）；v2 scrypt 密文仍可解锁，成功解锁时原地自动升级，无需手工迁移。新增解锁爆破锁定（429 + 指数退避）、凭证泄露检测与输出脱敏（HTTP/WS）、发行代码完整性自校验（fail-closed）。注意新增原生依赖 `@node-rs/argon2`
 - **v0.1.0-rc.9 → rc.10**：修复完整性自校验对行尾敏感的 bug——rc.9 的清单按打包机的原始字节（CRLF/LF 混用）生成，git 克隆或源码目录安装到行尾不同的平台时会误报 `INTEGRITY_FAILED`；rc.10 起哈希前归一化（去 BOM、CRLF→LF），另附 `.gitattributes` 固定 LF。已装 rc.9 的用户请重新安装 rc.10 的 tarball
 - **v0.1.0-rc.10 → rc.11**：安全加固——① 所有路由增加 **Host 头信任围栏**（防 DNS rebinding，语义对齐官方 /api；LAN 部署需在 `dsh-encrypt-web` 行配置 `trustedHosts`）；② 免密票据默认**仅 HttpOnly Cookie**，响应体不再回传（`rememberChannel: "header"` 可显式回退；升级后旧 localStorage 副本自动清理并作废）；③ `change-password` 必须携带 `oldDigest` 证明当前口令（WebUI 新增「当前密码」输入框）；④ 「本机」判定全部改由 Host 头完成
+- **v0.1.0-rc.11 → rc.12**：安全复查修复——① **输出脱敏真正接线**（`apply()` 现在安装 HTTP 响应/WebSocket 帧脱敏代理，并修复一次性响应体 `res.end(chunk)` 被吞掉的缺陷；凭证回显在离开主机前被替换为 `[REDACTED:dsh-encrypt]`）；② **改密受解锁锁定窗口约束**（锁定期间返回 `TOO_MANY_ATTEMPTS`，不再是无限在线猜口令面）；③ **「本机」升级为 Host 回环且 socket 回环双重判定**（防 LAN 客户端伪造回环 Host 接管明文库或签发免密票据；0.0.0.0 绑定 + 明文库启动即告警）；④ 请求体上限 64 KiB（413 `payload-too-large`）；⑤ 锁定态下关闭免密不再报错，并在下次密码/票据解锁时撤销旧票据块；⑥ 非 VaultError 的错误不再回传内部细节（日志留痕 + 通用 500）
 - 与官方 `credentials` 接缝 **drop-in**：LLM 适配器、Models 页、web-search 等消费者零改动
 - 官方凭证 RPC（如 `credentials.set`）在两种形态下照常工作；锁定状态下写入会以 `VAULT_LOCKED` 拒绝
 - 明文形态文件可被 `dsh-credentials-local` 直接读取——移除本插件前先「移除密码」即可无缝回退
@@ -352,12 +354,12 @@ dsh plugin --profile headless remove dsh-encrypt
 
 ```sh
 npm install        # devDependencies 自包含（scoped rc.1 依赖线 + @node-rs/argon2）
-npm test           # node --test：43 个单元测试（vault / web / client / security；pretest 自动重建完整性清单）
+npm test           # node --test：84 个单元测试（vault / web / trust / provider / lockout / leak-guard；pretest 自动重建完整性清单）
 npm run integrity  # 手工重建 lib/integrity-manifest.json（修改任何 lib/ 文件后必须执行，否则启动自校验会拒绝加载）
 npm pack           # prepack 自动重建清单后打包
 ```
 
-安全测试覆盖：锁定期望（阈值/指数退避/上限/不复位）、泄露检测（正则元字符转义、长度窗口、去重）、流式脱敏的分块边界不泄漏性质、WebSocket 帧过滤（拆分帧/长度类重建/控制帧直通/二进制直通）、完整性清单（篡改/缺失 fail-closed）、429 响应与路由包装（注册前后均被包裹）、101 握手缓冲后过滤帧。
+安全测试覆盖：解锁锁定期望（阈值/指数退避/上限/不复位）、Host 围栏与回环双重判定（DNS rebinding 403 + LAN 伪造回环 Host 被 LOCAL_ONLY 拒绝）、票据通道（cookie/header）、请求体上限（413）与内部错误脱敏（通用 500）、输出脱敏接线（HTTP 响应注册前后均被包裹、明文不外泄、dispose 还原）、泄露检测（正则元字符转义、最长优先、流式分块边界不泄漏）、WebSocket 帧过滤（文本帧替换+长度重编码、拆分帧、二进制/控制帧直通）、完整性清单（篡改/缺失 fail-closed）、429 响应与 Retry-After。
 
 额外验证脚本：
 

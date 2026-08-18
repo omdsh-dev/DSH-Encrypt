@@ -78,3 +78,20 @@ curl.exe -s -m 10 -w "`nHTTP:%{http_code}`n" -X POST http://127.0.0.1:3080/api/c
 
 ## 发布（rc.11）
 - version 0.1.0-rc.11；npm run integrity（pretest/prepack 自动）；npm test；npm pack（files 含 lib/trust.js）；双 profile 重装；README 升级章节。
+
+## rc.12 复查修复（2026-08-18 安全复查，已执行）
+
+复查确认 F1/F2/F3/F5 均已正确落实（trust 边界实证、依赖 audit 0 漏洞、63/63 通过），并发现以下残留问题，全部修复：
+
+- **H1（高危）输出脱敏从未接线**：`installLeakRedaction` 只有定义没有调用（git 全历史确认），凭证回显不会被替换。修复：`web.apply()` 在路由注册前通过 `ctx.effect` 安装 HTTP/WS 脱敏代理；顺带修复 `redactingHttpHandler` 的 `res.end(chunk)` 先 flush 后 push 导致一次性响应体被吞的缺陷（接线测试暴露）。补 `test/leak-guard.test.js`（字面量转义/最长优先/流式分块边界/WS 帧过滤/拆分帧/二进制直通）+ `test/web.test.js` 接线测试（注册前后均被包裹、明文不外泄、dispose 还原、空守卫 passthrough）。
+- **M1（中危）change-password 绕过锁定窗口**：改密错误旧口令只计数不拒绝，锁定期间仍是无限猜口令面。修复：`changePassword` 入口与队列内各加 `assertUnlockAllowed()`，锁定期间返回 `TOO_MANY_ATTEMPTS`。补 provider 测试（5 次错误解锁锁定后，环境变量自动解锁的进程改密被拒）。
+- **M2（中危）LAN 伪造回环 Host 可接管明文库**：`isLocalRequest` 升级为 Host 回环 **且** socket 回环（新增 `trust.isLoopbackSocket`，覆盖 127.0.0.1/::1/::ffff:127.0.0.1 映射）。改密/设密/免密设置与票据签发消费全部收紧；0.0.0.0 绑定 + 明文库时启动告警。补 trust/web 测试。
+- **L1**：请求体上限 64 KiB（413 payload-too-large），补测试。
+- **L2**：锁定态下把免密窗口调成 0 不再因缺密钥报错；新增 `revokeRememberIfDisabled` 在下次密码/票据解锁后撤销旧块。补 provider 测试。
+- **L3**：服务端只见摘要、无法校验密码强度——README 诚实边界补充说明（≥8 位仅 WebUI 前端约束）。
+- **L4**：非 VaultError 的 message 不再回传（logger 留痕 + 通用 500 internal），杜绝路径泄露。补测试。
+- **L5**：README 版本表/安装示例/测试数量（84）与安全测试覆盖清单对齐实现，升级章节补 rc.11→rc.12；新增 `test/lockout.test.js`（阈值/指数退避/上限/不复位）。
+
+验证：`npm test` 84/84 通过；`npm run integrity` 重建清单（lib/index.js、lib/trust.js、lib/web.js 哈希已更新）；`npm pack` 产出 dsh-encrypt-0.1.0-rc.12.tgz。
+
+部署：本机 profile 为源码 junction，重启 `dsh web` 即生效（无需重新 `dsh plugin add`）。
