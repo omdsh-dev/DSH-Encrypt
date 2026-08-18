@@ -8,7 +8,7 @@
 | 版本 | `0.1.0-rc.12` |
 | 兼容运行时 | dsh `0.1.0-rc.7` 线(实测组合;跨线明确报 `UNSUPPORTED_DSH`) |
 | 依赖线 | 接缝包精确钉版(cordis `4.0.1`、dsh-credentials 等 `0.1.0-rc.6`);独立包范围版(@node-rs/argon2/chokidar/yaml) |
-| 环境 | Node.js ≥ 18(建议 22+);DSH `@deepseek-ai/dsh@0.0.1-rc.1+` |
+| 环境 | Node.js ≥ 24;DSH `@deepseek-ai/dsh@0.0.1-rc.1+` |
 | License | [MIT](./LICENSE) |
 
 ## 特性
