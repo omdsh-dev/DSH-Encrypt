@@ -6,7 +6,6 @@ import { defineConfig } from 'tsdown'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)))
 const outputDirectory = join(root, 'lib')
-let buildGeneration = 0
 
 interface IntegrityManifest {
   format: string
@@ -34,8 +33,10 @@ function integrityManifestPlugin(): TsdownPlugin {
     name: 'dsh-encrypt-integrity-manifest',
     async closeBundle(error): Promise<void> {
       if (error) return
+      // tsdown only generates dts for the `es` format; the IIFE client half
+      // gets a static declaration (the browser module has no exports).
+      writeFileSync(join(outputDirectory, 'client.d.ts'), 'export {}\n')
       const moduleUrl = pathToFileURL(join(outputDirectory, 'integrity.js'))
-      moduleUrl.searchParams.set('build', String(buildGeneration++))
       const integrity = (await import(moduleUrl.href)) as IntegrityModule
       const relativeFiles = collectFiles(outputDirectory)
         .map(path => relative(root, path).split(sep).join('/'))
@@ -48,25 +49,26 @@ function integrityManifestPlugin(): TsdownPlugin {
   }
 }
 
+// Browser half: emits a classic script (IIFE) instead of ESM — the
+// client-modules loader injects bundles as <script> tags, where an `export`
+// statement is a parse error and the __ModuleLoader__.load registration
+// never runs. Run after the node build:
+// `pnpm build` = `tsdown && tsdown -c tsdown.client.config.ts`.
 export default defineConfig({
   entry: {
-    compat: 'src/compat.ts',
-    index: 'src/index.ts',
-    integrity: 'src/integrity.ts',
-    'leak-guard': 'src/leak-guard.ts',
-    lockout: 'src/lockout.ts',
-    trust: 'src/trust.ts',
-    vault: 'src/vault.ts',
-    web: 'src/web.ts',
+    client: 'src/client.ts',
   },
-  clean: true,
+  clean: false,
   dts: {
     generator: 'oxc',
   },
   fixedExtension: false,
-  format: 'esm',
+  format: 'iife',
   outDir: 'lib',
-  platform: 'node',
+  outputOptions: {
+    entryFileNames: 'client.js',
+  },
+  platform: 'browser',
   plugins: [integrityManifestPlugin()],
   sourcemap: true,
   target: 'es2022',
