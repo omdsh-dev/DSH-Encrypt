@@ -31,8 +31,7 @@ function collectFiles(directory: string): string[] {
 function integrityManifestPlugin(): TsdownPlugin {
   return {
     name: 'dsh-encrypt-integrity-manifest',
-    async closeBundle(error): Promise<void> {
-      if (error) return
+    async writeBundle(): Promise<void> {
       // tsdown only generates dts for the `es` format; the IIFE client half
       // gets a static declaration (the browser module has no exports).
       writeFileSync(join(outputDirectory, 'client.d.ts'), 'export {}\n')

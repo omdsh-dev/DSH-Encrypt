@@ -15,6 +15,9 @@
     "sha3-256"
   ],
   "license": "MIT",
+  "bin": {
+    "dsh-encrypt-migrate": "bin/dsh-encrypt-migrate.mjs"
+  },
   "files": [
     "lib",
     "bin/dsh-encrypt-migrate.mjs",
@@ -68,18 +71,15 @@
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
-  "bin": {
-    "dsh-encrypt-migrate": "bin/dsh-encrypt-migrate.mjs"
-  },
   "scripts": {
     "build": "tsdown && tsdown -c tsdown.client.config.ts",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm knip",
     "dev": "tsdown --watch",
-    "format": "oxfmt --write .",
-    "format:check": "oxfmt --check .",
+    "format": "oxfmt -c oxfmt.config.mjs --write .",
+    "format:check": "oxfmt -c oxfmt.config.mjs --check .",
     "knip": "knip",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
+    "lint": "oxlint -c oxlint.config.mjs",
+    "lint:fix": "oxlint -c oxlint.config.mjs --fix",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
     "check:patch": "pnpm build && node scripts/check-patch-drift.mjs",
     "pretest": "pnpm build && node scripts/check-patch-drift.mjs",
@@ -112,7 +112,9 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tsdown": "0.22.14",
+    "tsx": "^4.23.1",
     "typescript": "7.0.2",
+    "unrun": "^0.3.1",
     "vitest": "4.1.10"
   },
   "peerDependencies": {

@@ -1,0 +1,2 @@
+minimumReleaseAgeExclude:
+  - '@oh-my-dsh/cordis-fabric@0.1.1'

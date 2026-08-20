@@ -1,3 +1,7 @@
+# Local pre-TypeScript Fabric regression fixtures; tracked Vitest .ts tests remain published in source.
+test/*.js
+test/fixtures/
+
 # Build artifacts and local tooling.
 lib/
 *.tgz

@@ -32,8 +32,7 @@ function collectFiles(directory: string): string[] {
 function integrityManifestPlugin(): TsdownPlugin {
   return {
     name: 'dsh-encrypt-integrity-manifest',
-    async closeBundle(error): Promise<void> {
-      if (error) return
+    async writeBundle(): Promise<void> {
       const moduleUrl = pathToFileURL(join(outputDirectory, 'integrity.js'))
       moduleUrl.searchParams.set('build', String(buildGeneration++))
       const integrity = (await import(moduleUrl.href)) as IntegrityModule
