@@ -1,7 +1,7 @@
 {
   "name": "dsh-encrypt",
   "version": "0.1.0-rc.12",
-  "description": "WebUI-managed encrypted credentials for DeepSeek Harness: one file, plaintext until a password is set, then AES-256-GCM ciphertext under an Argon2id-derived key with SHA3-256 fingerprints; per-request decryption, unlock lockout, leak-guard output redaction, and shipped-code integrity self-checks.",
+  "description": "Fabric sidecar encryption for DeepSeek Harness credentials: preserve the official provider and hook only credential and WebServer seams with an Argon2id/AES-GCM sidecar, unlock lockout, leak-guard output redaction, and shipped-code integrity checks.",
   "keywords": [
     "aes-256-gcm",
     "argon2id",
@@ -17,15 +17,32 @@
   "license": "MIT",
   "files": [
     "lib",
+    "bin/dsh-encrypt-migrate.mjs",
     "cordis.patch.yml"
   ],
   "type": "module",
-  "main": "./lib/index.js",
-  "types": "./lib/index.d.ts",
+  "main": "./lib/fabric-entry.js",
+  "types": "./lib/fabric-entry.d.ts",
   "exports": {
     ".": {
+      "types": "./lib/fabric-entry.d.ts",
+      "import": "./lib/fabric-entry.js"
+    },
+    "./index": {
       "types": "./lib/index.d.ts",
       "import": "./lib/index.js"
+    },
+    "./fabric-entry": {
+      "types": "./lib/fabric-entry.d.ts",
+      "import": "./lib/fabric-entry.js"
+    },
+    "./migrate": {
+      "types": "./lib/migrate.d.ts",
+      "import": "./lib/migrate.js"
+    },
+    "./plain": {
+      "types": "./lib/plain.d.ts",
+      "import": "./lib/plain.js"
     },
     "./vault": {
       "types": "./lib/vault.d.ts",
@@ -40,8 +57,19 @@
       "import": "./lib/client.js",
       "default": "./lib/client.js"
     },
+    "./compat": {
+      "types": "./lib/compat.d.ts",
+      "import": "./lib/compat.js"
+    },
+    "./trust": {
+      "types": "./lib/trust.d.ts",
+      "import": "./lib/trust.js"
+    },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-encrypt-migrate": "bin/dsh-encrypt-migrate.mjs"
   },
   "scripts": {
     "build": "tsdown && tsdown -c tsdown.client.config.ts",
@@ -52,11 +80,12 @@
     "knip": "knip",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "prepack": "pnpm build",
-    "pretest": "pnpm build",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
+    "check:patch": "pnpm build && node scripts/check-patch-drift.mjs",
+    "pretest": "pnpm build && node scripts/check-patch-drift.mjs",
+    "prepack": "pnpm build && node scripts/check-patch-drift.mjs",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.tools.json --noEmit"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.1",
@@ -66,6 +95,7 @@
     "@deepseek-ai/dsh-launch-environment": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@node-rs/argon2": "^2.1.0",
+    "@oh-my-dsh/cordis-fabric": "^0.1.1",
     "chokidar": "^5.0.0",
     "valibot": "^1.4.2",
     "yaml": "^2.9.0"
@@ -88,7 +118,7 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"
   },
-  "packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621",
+  "packageManager": "pnpm@11.22.0",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

@@ -51,10 +51,14 @@ function integrityManifestPlugin(): TsdownPlugin {
 export default defineConfig({
   entry: {
     compat: 'src/compat.ts',
+    'fabric-entry': 'src/fabric-entry.ts',
+    'fabric-handlers': 'src/fabric-handlers.ts',
     index: 'src/index.ts',
     integrity: 'src/integrity.ts',
     'leak-guard': 'src/leak-guard.ts',
     lockout: 'src/lockout.ts',
+    migrate: 'src/migrate.ts',
+    plain: 'src/plain.ts',
     trust: 'src/trust.ts',
     vault: 'src/vault.ts',
     web: 'src/web.ts',
