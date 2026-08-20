@@ -1,57 +1,100 @@
 # dsh-encrypt 架构
 
-本项目使用分层模块承载加密凭证生命周期，并保留 `src/index.ts`、`src/vault.ts`、`src/web.ts`、`src/client.ts` 作为兼容入口。兼容入口负责组合与导出，不再承载可复用的底层规则。
+本分支以 upstream/master 的分层 TypeScript/toolchain 为安全基础，再增加一个 Fabric sidecar 组合层。包根入口是 `src/fabric-entry.ts`：它**不替换**官方 credentials provider，只创建 sidecar controller 并注册 Fabric seams。`src/index.ts` 保留 upstream provider-compatible 入口和核心实现，便于复用、测试以及后续迁移；发布包根 `.` 指向 `lib/fabric-entry.js`。
+
+## 运行时所有权
+
+| 组件                                                     | 所有权            | 责任                                                                         |
+| :------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------- |
+| `@deepseek-ai/dsh-credentials-local` / `credentials` row | 官方 provider     | provider 生命周期、环境层、官方 `.credentials.yaml` 读取和原生 watcher       |
+| `dsh-encrypt-fabric`                                     | 本插件 Fabric row | controller 生命周期、sidecar 文件、加密状态、Fabric patch registration       |
+| `@deepseek-ai/dsh-host-webserver`                        | host              | HTTP route table、upgrade table 和实际监听；本插件只通过 Fabric 包装注册参数 |
+| `lib/integrity.js` + manifest                            | 构建产物          | 启动时检查已发布文件和 `cordis.patch.yml` 是否完整一致                       |
+
+`cordis.patch.yml` 中 Fabric row 默认 `disabled: true`，由 `fabric-dsh` profile 开启。官方 `credentials` row 不得被禁用；`scripts/check-patch-drift.mjs` 会在构建后验证这一点。
 
 ## 模块边界
 
-| 层       | 目录                 | 职责                                                   | 允许依赖                  |
-| :------- | :------------------- | :----------------------------------------------------- | :------------------------ |
-| 领域     | `src/domain`         | 常量、稳定错误码、文档和 Provider 类型、Valibot schema | `src/shared`、Valibot     |
-| 应用     | `src/application`    | 密码转换、记住登录、串行操作、状态视图策略             | 领域层、基础设施端口实现  |
-| 基础设施 | `src/infrastructure` | Node 密码学、磁盘文档、权限、运行时配置                | 领域层、共享校验          |
-| 传输     | `src/transport`      | HTTP 结构类型、请求 schema、限量读取和边界错误         | 领域层、共享校验、Valibot |
-| 安全     | `src/security`       | 字面量泄露匹配、HTTP 与 WebSocket 脱敏                 | LeakGuard 的窄接口        |
-| 客户端   | `src/client`         | 浏览器 SHA3、API、票据存储、界面状态映射               | 浏览器标准 API            |
-| 共享     | `src/shared`         | 无状态、无平台依赖的字符和文本校验                     | 无项目内依赖              |
+| 层              | 目录/入口                                                            | 职责                                                                          | 允许依赖                           |
+| :-------------- | :------------------------------------------------------------------- | :---------------------------------------------------------------------------- | :--------------------------------- |
+| 领域            | `src/domain`                                                         | vault/provider model、稳定错误码、Valibot schemas                             | `src/shared`、Valibot              |
+| 应用            | `src/application`                                                    | upstream 密码操作、remember、队列和 provider policy                           | 领域层、基础设施端口               |
+| 基础设施        | `src/infrastructure`                                                 | Argon2id/AES-GCM、vault 文档、状态文件、权限和运行时配置                      | 领域层、共享校验                   |
+| 传输            | `src/transport`                                                      | HTTP 结构、请求 schema、限量读取和边界错误                                    | 领域层、Valibot                    |
+| 安全            | `src/security`、`src/leak-guard.ts`                                  | literal leak matching、HTTP/WS redaction 和 socket fence                      | 窄安全接口                         |
+| 客户端          | `src/client`、`src/client.ts`                                        | 浏览器 SHA3、API、remember storage 和设置页状态                               | 浏览器标准 API                     |
+| Fabric 组合     | `src/fabric-entry.ts`、`src/fabric-handlers.ts`                      | Cordis config、controller 创建、6 个 patch descriptor/handler、WebServer 注入 | Fabric API、官方 credentials seams |
+| Sidecar runtime | `src/fabric-controller-runtime.js`、`src/plain.ts`、`src/migrate.ts` | marker/sidecar 生命周期、兼容的 invoke hooks、旧格式迁移                      | vault、lockout、home/atomic-write  |
+| 兼容入口        | `src/index.ts`、`src/vault.ts`、`src/web.ts`、`src/client.ts`        | 稳定导出和组合，不承载新的底层协议                                            | 上述分层模块                       |
 
-依赖方向以领域类型为中心。密码学模块不读取文件，文档模块不处理 HTTP，HTTP schema 不调用 Provider，客户端不导入 Node API。
+Fabric controller 的实现被有意隔离成一个只负责运行时迁移的兼容模块；`src/fabric-controller.ts` 提供 typed constructor/path facade，避免 legacy lifecycle 方法污染 upstream 的 isolated declaration 生成。它没有独立的 provider service，也不会绕过官方 credentials row。
 
-## Vault 组合
+## Vault 与 sidecar 组合
 
-`src/vault.ts` 维持原有包导出。实际实现由以下模块组成：
+`src/vault.ts` 维持公共加密导出；实现由以下模块组合：
 
 1. `domain/vault/model.ts` 定义文档常量、类型和 `VaultError`。
-2. `domain/vault/schemas.ts` 用 Valibot 校验持久化文档。
-3. `infrastructure/crypto/vault-crypto.ts` 处理 Argon2id、scrypt、AES-GCM、SHA3 和密钥清零。
-4. `infrastructure/persistence/vault-document.ts` 处理规范化序列化、结构校验和文档指纹。
-5. `application/password-service.ts` 处理设密、解锁和密码证明。
-6. `application/remember-service.ts` 处理票据签发、有效期和主密钥恢复。
+2. `domain/vault/schemas.ts` 校验 JSON/YAML credential document。
+3. `infrastructure/crypto/vault-crypto.ts` 处理 Argon2id、旧 scrypt、AES-GCM、SHA3 和 key zeroization。
+4. `infrastructure/persistence/vault-document.ts` 处理序列化、结构校验和文档 fingerprint。
+5. `application/password-service.ts` / `remember-service.ts` 处理密码、ticket 和恢复。
+6. `fabric-controller-runtime.js` 将相同 vault primitive 映射到 sidecar 文件和官方 provider hooks。
 
-每个模块都可以通过内存输入单独测试。磁盘文档格式、公开函数名和稳定错误码由兼容入口保持。
+sidecar 状态转换：
 
-## 校验策略
+```text
+.credentials.yaml (官方 plaintext)
+        │ set-password: encrypt, write sidecar first
+        ▼
+.credentials.yaml (comment-only marker)
+.credentials.encrypt.yaml (ciphertext)
+        │ restart / lock / unlock
+        └── controller resolves encrypted entries and writes only sidecar
+```
 
-项目使用两类校验：
+两个文件格式故意不互相兼容。启动时看到 legacy single-file encrypted document 会抛 `VAULT_MIGRATION_REQUIRED`，看到 sidecar 与 marker 不一致会抛 `VAULT_INVALID`；不会把异常内容当作空凭证库继续运行。
 
-- Valibot 校验 JSON、状态文件和 HTTP 请求等不可信结构。
-- 显式字符扫描校验十六进制、凭证引用和版本文本。
+## Fabric patch 契约
 
-项目不使用正则表达式。泄露检测使用不可变字面量 trie，并按“最早位置、最长值、互不重叠”选择匹配项。该实现不会把凭证内容拼进动态正则，也不会受到正则特殊字符影响。
+`src/fabric-handlers.ts` 是唯一的 executable descriptor source；YAML 只携带 bundle metadata。当前稳定 ID/操作如下：
 
-`@deepseek-ai/schemastery` 只保留在 Cordis 的静态插件配置边界，因为该边界由宿主框架读取。业务输入和磁盘输入统一由 Valibot 校验。
+- `credentials-resolve` / `credentials-describe`: official `resolve`/`describe` 的 `after`；
+- `credentials-set` / `credentials-unset`: official `set`/`unset` 的 `around`；
+- `webserver-http-register` / `webserver-upgrade-register`: host route registration 的 `before`，可选目标。
 
-## 并发与状态
+所有 credentials target 都绑定 `@deepseek-ai/dsh-credentials-local` 的 `src/index.ts` / `lib/index.js`，版本范围 `<0.2.0`。修改 handler 时必须同时运行：
 
-`OperationQueue` 为文件修改提供失败隔离的串行顺序。Provider 的任务失败不会污染队列尾部，后续任务仍可运行。密码解锁入口限制待处理请求数量，已接收的请求再进入同一串行队列执行状态变更。
+```sh
+pnpm build
+node scripts/check-patch-drift.mjs
+```
 
-`src/web.ts` 只组合路由、访问检查和应用操作。共享 HTTP 结构及限量请求读取位于传输层；HTTP 与 WebSocket 输出脱敏位于安全层。
+drift check 会比较 `id`、`required`、`target`、`operation`，并拒绝任何禁用官方 `credentials` row 的 patch。
 
-运行时状态文件按字段独立校验。一个损坏字段不会抹掉同文件内其他有效字段。Provider 只把加密记录保存在长期快照中；明文只存在于一次解析或回调期间。
+## Web 与安全边界
+
+Fabric entry 等待 `webServer` 或 `httpServer` 注入，然后以 `{ credentials: controller, ...webContext }` 调用 `src/web.ts`。这样 upstream Web transport 不需要知道 Fabric，仍可复用：
+
+- Valibot 请求结构与 body size/timeout fence；
+- Host authority + loopback socket 双重判定；
+- cookie 默认的 remember ticket，显式 `header` 通道兼容特殊 WebView；
+- 已有 route table 和未来注册 route 的 HTTP/WS literal redaction。
+
+核心业务不把 HTTP handler 直接放进 controller；handlers 只负责 Fabric call arguments/return values，web 层负责请求解析、错误映射和 response header。
+
+## 完整性、并发与校验
+
+- `tsdown.config.ts` 与 client config 使用 `writeBundle` 在所有输出写入后生成 `lib/integrity-manifest.json`；manifest 覆盖所有 `lib/**` 产物和 `cordis.patch.yml`。
+- `@deepseek-ai/schemastery` 只用于 Cordis 静态 `Config` 边界；upstream application/transport/persistence 对不可信结构使用 Valibot 或显式 fail-closed 检查。
+- upstream `OperationQueue` 提供失败隔离的串行修改；sidecar controller 另有自己的 queue，保证 watcher、set/unset、密码修改按顺序写入。
+- leak detection 使用不可变 literal matcher，不把凭证内容拼入动态 regex；marker basename 检查属于纯格式识别，不承担秘密匹配。
+- Node/build 入口保留 `assertRuntimeCompat()` 和 `loadAndVerifyIntegrity()`，完整性清单用于发现安装损坏，不是目录写权限攻击下的签名信任根。
 
 ## 变更规则
 
-- 新磁盘字段必须先加入领域类型和 Valibot schema，再加入规范化指纹字段顺序。
-- 新 HTTP 操作必须先定义精确请求 schema，禁止使用字符串强制转换接受错误类型。
-- 新密码学能力必须留在 `infrastructure/crypto`，并通过领域类型返回结果。
-- 新输出通道必须复用安全模块的字面量脱敏器，或明确记录无法扫描的二进制边界。
-- 兼容入口的导出变更必须配套声明构建和回归测试。
+- 新磁盘字段先加入领域类型/schema，再加入 fingerprint 的规范化字段顺序；sidecar 字段还要覆盖 legacy/marker 迁移路径。
+- 新 HTTP 操作先定义精确 request schema，禁止用字符串强制转换接受错误类型。
+- 新密码学能力留在 `infrastructure/crypto`，Fabric controller 只组合 primitive，不复制 AEAD/KDF 实现。
+- 新 Fabric seam 必须同时更新 `PATCH_IDS`、`PATCH_OPERATIONS`、`patchStubs()`、`cordis.patch.yml` 和 drift/integration tests。
+- 新输出通道复用 security redaction；必须明确记录无法扫描的二进制边界。
+- `lib/`、`.map`、`.d.ts` 和 integrity manifest 只由 `pnpm build` 生成；发布前运行 `pnpm pack --dry-run`。本地完成后按类别提交，未得到明确要求不得 push。
