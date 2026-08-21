@@ -31,7 +31,7 @@ async function assertOwnerOnly(filename: string): Promise<void> {
 }
 
 /**
- * Move the pre-Fabric single-file encrypted document into the sidecar layout.
+ * Move the pre-Stent single-file encrypted document into the sidecar layout.
  * This operation does not unlock or decrypt anything; it only verifies the
  * document structure, writes the ciphertext first, then replaces the official
  * file with the comment-only marker.

@@ -1,9 +1,9 @@
-# dsh-encrypt Fabric bundle.
+# dsh-encrypt Stent bundle.
 #
 # The official credentials-local row remains enabled and continues to own the
 # provider lifecycle, YAML parser, environment precedence, watcher and writes.
-# This row only activates the sidecar controller plus the targeted Fabric
-# transforms. It is disabled on plain dsh and enabled by fabric-dsh.
+# This row only activates the sidecar controller plus the targeted Stent
+# transforms. It is disabled on plain dsh and enabled by stent-dsh.
 #
 # The encrypted form is:
 #   .credentials.yaml          comment-only shadow marker
@@ -15,7 +15,7 @@
       config:
         allowEnvFallback: true
         trustedHosts: []
-        fabric:
+        stent:
           patches:
             - id: dsh-encrypt/credentials-resolve
               required: true

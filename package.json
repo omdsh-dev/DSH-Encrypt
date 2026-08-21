@@ -1,7 +1,7 @@
 {
   "name": "dsh-encrypt",
   "version": "0.1.0-rc.12",
-  "description": "Fabric sidecar encryption for DeepSeek Harness credentials: preserve the official provider and hook only credential and WebServer seams with an Argon2id/AES-GCM sidecar, unlock lockout, leak-guard output redaction, and shipped-code integrity checks.",
+  "description": "Stent sidecar encryption for DeepSeek Harness credentials: preserve the official provider and hook only credential and WebServer seams with an Argon2id/AES-GCM sidecar, unlock lockout, leak-guard output redaction, and shipped-code integrity checks.",
   "keywords": [
     "aes-256-gcm",
     "argon2id",
@@ -73,7 +73,7 @@
   },
   "scripts": {
     "build": "tsdown && tsdown -c tsdown.client.config.ts",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm knip",
+    "check": "pnpm build && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm knip",
     "dev": "tsdown --watch",
     "format": "oxfmt -c oxfmt.config.mjs --write .",
     "format:check": "oxfmt -c oxfmt.config.mjs --check .",
@@ -95,7 +95,7 @@
     "@deepseek-ai/dsh-launch-environment": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@node-rs/argon2": "^2.1.0",
-    "@oh-my-dsh/cordis-fabric": "^0.1.1",
+    "@oh-my-dsh/stent": "^0.1.1",
     "chokidar": "^5.0.0",
     "valibot": "^1.4.2",
     "yaml": "^2.9.0"
@@ -120,7 +120,6 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"
   },
-  "packageManager": "pnpm@11.22.0",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

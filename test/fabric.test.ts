@@ -77,7 +77,7 @@ it('resolveSpec derives a sidecar without changing the official path', () => {
   expect(spec.stateFile).toBe('/tmp/state.json')
 })
 
-it('plain parser and marker are independent of Fabric hooks', () => {
+it('plain parser and marker are independent of Stent hooks', () => {
   const entries = parsePlainEntries('# note\nA_KEY: value\n', '/tmp/credentials.yaml')
   expect([...entries]).toEqual([['A_KEY', 'value']])
   const marker = encryptedMarker('/tmp/.credentials.encrypt.yaml')

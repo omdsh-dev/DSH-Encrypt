@@ -4,6 +4,7 @@ test/fixtures/
 
 # Build artifacts and local tooling.
 lib/
+dist/
 *.tgz
 .npm-cache/
 node_modules/

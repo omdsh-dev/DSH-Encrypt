@@ -29,7 +29,7 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.1.0
         version: 2.1.0
-      '@oh-my-dsh/cordis-fabric':
+      '@oh-my-dsh/stent':
         specifier: ^0.1.1
         version: 0.1.1(@deepseek-ai/cordis@4.0.1)
       chokidar:
@@ -530,8 +530,8 @@ packages:
     resolution: {integrity: sha512-VBOWfM2u58/to3DFqTGJ2U5cJKQwmjN2zxzsQNZ5a2o8Z6aUrhvqQh8NdgotIF1Y0tMsBNtzOBDBdfvvkwJDSQ==}
     engines: {node: '>= 10'}
 
-  '@oh-my-dsh/cordis-fabric@0.1.1':
-    resolution: {integrity: sha512-4yovyRHSyOGaRvLlplk62kus0WXcdYAlGzKt/2FMCCo4KisYYTh7GsPq9t2HUbG3xynsGhem7lQVsnlYA6StBw==}
+  '@oh-my-dsh/stent@0.1.1':
+    resolution: {integrity: sha512-gi46XWxK73namcfbOuWQfi6oNHqIWljnoj0GSqmcW30mAJc06ebY+tLGXmN4jLXeQs6jJN9SZxXhCRdHzwSodQ==}
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.1-0
 
@@ -2928,7 +2928,7 @@ snapshots:
       '@node-rs/argon2-win32-ia32-msvc': 2.1.0
       '@node-rs/argon2-win32-x64-msvc': 2.1.0
 
-  '@oh-my-dsh/cordis-fabric@0.1.1(@deepseek-ai/cordis@4.0.1)':
+  '@oh-my-dsh/stent@0.1.1(@deepseek-ai/cordis@4.0.1)':
     dependencies:
       '@apm-js-collab/code-transformer': 0.18.1
       '@deepseek-ai/cordis': 4.0.1

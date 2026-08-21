@@ -35,7 +35,7 @@ const DEFAULT_PASSWORD_ENV = 'DSH_CREDENTIAL_PASSWORD'
 const GROUP_OTHER_BITS = 0o077
 
 /**
- * Resolve the files owned by the Fabric controller. The official provider
+ * Resolve the files owned by the Stent controller. The official provider
  * keeps owning `.credentials.yaml`; the controller owns only the encrypted
  * sidecar and its runtime state.
  */
@@ -101,7 +101,7 @@ function changedRefs(previous, next) {
 }
 
 /**
- * Runtime owner for the encrypted sidecar. It contains no Fabric registration
+ * Runtime owner for the encrypted sidecar. It contains no Stent registration
  * code: handlers call this object, and its lifecycle is scoped by the plugin
  * that provided it.
  */
@@ -143,13 +143,13 @@ export class EncryptController {
     const primary = await readOptional(this.spec.filename)
     const sidecar = await readOptional(this.spec.encryptedFilename)
 
-    // A pre-Fabric single-file vault cannot be safely migrated after the
+    // A pre-Stent single-file vault cannot be safely migrated after the
     // official provider has initialized. Fail closed with an explicit action;
     // a future migration command can perform the move before dsh starts.
     if (sidecar === void 0 && primary !== void 0 && detectCredentialStore(primary) === 'encrypted') {
       throw new VaultError(
         'VAULT_MIGRATION_REQUIRED',
-        `the legacy encrypted ${this.spec.filename} must be migrated to ${this.spec.encryptedFilename} before starting Fabric dsh-encrypt`,
+        `the legacy encrypted ${this.spec.filename} must be migrated to ${this.spec.encryptedFilename} before starting Stent dsh-encrypt`,
       )
     }
     if (sidecar !== void 0) {

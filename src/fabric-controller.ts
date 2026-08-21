@@ -8,8 +8,8 @@ import {
 // the upstream tsdown declaration pass does not have to infer hundreds of legacy
 // lifecycle methods. The public constructor and path helpers remain typed here.
 
-/** Runtime configuration accepted by the Fabric sidecar adapter. */
-export interface FabricConfig {
+/** Runtime configuration accepted by the Stent sidecar adapter. */
+export interface StentConfig {
   path?: string
   dshHome?: string
   encryptedPath?: string
@@ -27,12 +27,12 @@ export interface FabricConfig {
   lockoutBaseMs?: number
   lockoutMaxMs?: number
   trustedHosts?: string[]
-  fabric?: unknown
+  stent?: unknown
   [key: string]: unknown
 }
 
 /** Resolved sidecar paths and policy values. */
-export interface FabricSpec {
+export interface StentSpec {
   filename: string
   encryptedFilename: string
   stateFile: string
@@ -50,7 +50,7 @@ type Invoke = (...args: unknown[]) => unknown
 
 /** Public controller instance surface supplied by the runtime adapter. */
 export interface EncryptController {
-  config: FabricConfig
+  config: StentConfig
   format: 'plain' | 'encrypted'
   unlocked: boolean
   plaintextForbidden: boolean
@@ -71,12 +71,12 @@ export interface EncryptController {
   issueRemember: () => Promise<RememberIssue | null>
 }
 
-type EncryptControllerConstructor = new (ctx: unknown, config?: FabricConfig) => EncryptController
+type EncryptControllerConstructor = new (ctx: unknown, config?: StentConfig) => EncryptController
 
 /** Public controller constructor. */
 export const EncryptController = RuntimeEncryptController as EncryptControllerConstructor
 
 /** Resolve official and sidecar paths without changing provider ownership. */
-export function resolveSpec(config: FabricConfig = {}): FabricSpec {
-  return runtimeResolveSpec(config) as FabricSpec
+export function resolveSpec(config: StentConfig = {}): StentSpec {
+  return runtimeResolveSpec(config) as StentSpec
 }

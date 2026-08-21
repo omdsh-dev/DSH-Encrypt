@@ -1,23 +1,23 @@
 # dsh-encrypt
 
-> **DSH 凭证加密 Fabric sidecar**：不替换官方 `dsh-credentials-local` provider，而是在 Fabric profile 中挂载一个加密控制器，拦截凭证 provider 的 `resolve` / `describe` / `set` / `unset` 接缝，并通过 host WebServer 接缝安装密码路由和输出脱敏。设密后，官方 `.credentials.yaml` 保留为 comment-only marker，密文存放在旁车 `.credentials.encrypt.yaml`。
+> **DSH 凭证加密 Stent sidecar**：不替换官方 `dsh-credentials-local` provider，而是在 Stent profile 中挂载一个加密控制器，拦截凭证 provider 的 `resolve` / `describe` / `set` / `unset` 接缝，并通过 host WebServer 接缝安装密码路由和输出脱敏。设密后，官方 `.credentials.yaml` 保留为 comment-only marker，密文存放在旁车 `.credentials.encrypt.yaml`。
 
-| 项目       | 值                                                                   |
-| :--------- | :------------------------------------------------------------------- |
-| 形态       | bundle（`dsh.bundle.patch` → `cordis.patch.yml`）                    |
-| 版本       | `0.1.0-rc.12`                                                        |
-| 兼容运行时 | dsh `0.1.x`（加载时校验，跨线抛 `UNSUPPORTED_DSH`）                  |
-| 依赖线     | Cordis / DSH seam 包精确钉版；Fabric 使用 `@oh-my-dsh/cordis-fabric` |
-| 环境       | Node.js ≥ 24；DSH `0.1.x`                                            |
-| License    | [MIT](./LICENSE)                                                     |
+| 项目       | 值                                                          |
+| :--------- | :---------------------------------------------------------- |
+| 形态       | bundle（`dsh.bundle.patch` → `cordis.patch.yml`）           |
+| 版本       | `0.1.0-rc.12`                                               |
+| 兼容运行时 | dsh `0.1.x`（加载时校验，跨线抛 `UNSUPPORTED_DSH`）         |
+| 依赖线     | Cordis / DSH seam 包精确钉版；Stent 使用 `@oh-my-dsh/stent` |
+| 环境       | Node.js ≥ 24；DSH `0.1.x`                                   |
+| License    | [MIT](./LICENSE)                                            |
 
 ## 设计目标
 
 - **官方 provider 仍是 owner**：保留 `credentials` row，不禁用它；官方 provider 继续负责环境层、YAML marker 读取、生命周期和兼容行为。
-- **Fabric 只改接缝**：`dsh-encrypt-fabric` row 默认 `disabled: true`，仅由 `fabric-dsh` profile 启用；patch descriptor 与运行时 `patchStubs()` 自动做 drift check。
+- **Stent 只改接缝**：`dsh-encrypt-fabric` row 默认 `disabled: true`，仅由 `stent-dsh` profile 启用；patch descriptor 与运行时 `patchStubs()` 自动做 drift check。
 - **旁车存储**：明文迁移为 `.credentials.yaml` marker + `.credentials.encrypt.yaml` 密文文件，避免让官方 parser 看到密文；旧版单文件密文通过迁移 CLI 显式转换。
 - **安全默认值**：Argon2id + AES-256-GCM、SHA3-256 指纹、0600 原子写、文件锁、锁定退避、remember ticket 和 HTTP/WebSocket Leak Guard。
-- **跟随 upstream/master 安全层**：领域模型、Valibot 输入校验、不可变 literal matcher、操作队列、完整性 manifest、runtime compatibility fence 和 TypeScript build toolchain 均来自上游重构；Fabric adapter 作为独立组合层接入。
+- **跟随 upstream/master 安全层**：领域模型、Valibot 输入校验、不可变 literal matcher、操作队列、完整性 manifest、runtime compatibility fence 和 TypeScript build toolchain 均来自上游重构；Stent adapter 作为独立组合层接入。
 
 ## 安装与构建
 
@@ -27,7 +27,7 @@ pnpm install --frozen-lockfile
 pnpm build
 pnpm pack
 
-dsh plugin --profile fabric-dsh add ./dsh-encrypt-0.1.0-rc.12.tgz
+dsh plugin --profile stent-dsh add ./dsh-encrypt-0.1.0-rc.12.tgz
 ```
 
 `@node-rs/argon2` 使用预编译 native binary；平台缺失时可执行 `pnpm rebuild @node-rs/argon2`。发布前 `prepack` 会重新生成 `lib/integrity-manifest.json` 并检查 patch drift。
@@ -36,7 +36,7 @@ dsh plugin --profile fabric-dsh add ./dsh-encrypt-0.1.0-rc.12.tgz
 
 ## Bundle 行与职责
 
-`cordis.patch.yml` 只插入以下 Fabric row，并**不会**禁用官方 `credentials` row：
+`cordis.patch.yml` 只插入以下 Stent row，并**不会**禁用官方 `credentials` row：
 
 ```yaml
 - insert:
@@ -46,20 +46,20 @@ dsh plugin --profile fabric-dsh add ./dsh-encrypt-0.1.0-rc.12.tgz
       config:
         allowEnvFallback: true
         trustedHosts: []
-        fabric:
+        stent:
           patches: # 6 个与 src/fabric-handlers.ts 同步的 descriptor
 ```
 
-`fabric-dsh` profile 启用这个 disabled row；普通 `dsh` profile 会跳过它，因此不会意外改变官方 provider。启用后：
+`stent-dsh` profile 启用这个 disabled row；普通 `dsh` profile 会跳过它，因此不会意外改变官方 provider。启用后：
 
-| 层             | 入口                                         | 职责                                                           |
-| :------------- | :------------------------------------------- | :------------------------------------------------------------- |
-| 官方 provider  | `@deepseek-ai/dsh-credentials-local`         | 继续拥有 provider 生命周期、环境解析和 marker 文件             |
-| Fabric adapter | `lib/fabric-entry.js`                        | 创建 sidecar controller、注册 6 个 Fabric patch、挂载 Web 行为 |
-| Web 安全层     | `lib/web.js` + host `webServer`/`httpServer` | 密码操作、remember ticket、Host fence、HTTP/WS 输出脱敏        |
-| 浏览器 client  | `lib/client.js`                              | SHA3-256 摘要、设置页和 cookie/header remember 流程            |
+| 层            | 入口                                         | 职责                                                          |
+| :------------ | :------------------------------------------- | :------------------------------------------------------------ |
+| 官方 provider | `@deepseek-ai/dsh-credentials-local`         | 继续拥有 provider 生命周期、环境解析和 marker 文件            |
+| Stent adapter | `lib/fabric-entry.js`                        | 创建 sidecar controller、注册 6 个 Stent patch、挂载 Web 行为 |
+| Web 安全层    | `lib/web.js` + host `webServer`/`httpServer` | 密码操作、remember ticket、Host fence、HTTP/WS 输出脱敏       |
+| 浏览器 client | `lib/client.js`                              | SHA3-256 摘要、设置页和 cookie/header remember 流程           |
 
-Fabric adapter 通过 `ctx.inject(['webServer'], ...)` 和 `ctx.inject(['httpServer'], ...)` 适配不同 host；若没有 WebServer 服务，只挂载凭证 hooks，不会创建第二个 HTTP server。
+Stent adapter 通过 `ctx.inject(['webServer'], ...)` 和 `ctx.inject(['httpServer'], ...)` 适配不同 host；若没有 WebServer 服务，只挂载凭证 hooks，不会创建第二个 HTTP server。
 
 ## 使用与状态机
 
@@ -84,7 +84,7 @@ encrypted sidecar + marker, locked ── unlock / remember ──► unlocked
 | 修改密码      | encrypted + unlocked | 验证旧摘要，全部条目重新加密，旧 remember ticket 失效            |
 | remember 天数 | 任意                 | `0` 每次输入；`1–30` 天；`-1` 永久；密码和 ticket 操作仅允许本机 |
 
-加密状态下，Fabric `resolve` / `describe` 在官方 provider 未返回文件值时从 sidecar 提供值；`set` / `unset` 由 sidecar 接管。官方 provider 返回了未加密文件值时会 fail closed，而不是静默合并两套存储。继承环境层可按 `allowEnvFallback` 保留；环境值不会被 sidecar 覆盖写入。
+加密状态下，Stent `resolve` / `describe` 在官方 provider 未返回文件值时从 sidecar 提供值；`set` / `unset` 由 sidecar 接管。官方 provider 返回了未加密文件值时会 fail closed，而不是静默合并两套存储。继承环境层可按 `allowEnvFallback` 保留；环境值不会被 sidecar 覆盖写入。
 
 ## 磁盘格式
 
@@ -111,7 +111,7 @@ OPENAI_API_KEY: sk-...
 
 ## 旧版单文件迁移
 
-`origin/master` 的单文件密文格式与 Fabric sidecar 格式有意不兼容。升级前先停止 dsh，再运行：
+`origin/master` 的单文件密文格式与 Stent sidecar 格式有意不兼容。升级前先停止 dsh，再运行：
 
 ```sh
 pnpm build
@@ -123,7 +123,7 @@ CLI 只验证旧密文结构、写入新的 `.credentials.encrypt.yaml`，最后
 
 ## Web API 与脱敏
 
-Fabric Web 行会注册以下 exact routes（均要求 `POST application/json`，请求体上限和超时由 upstream transport 校验）：
+Stent Web 行会注册以下 exact routes（均要求 `POST application/json`，请求体上限和超时由 upstream transport 校验）：
 
 | 路径                               | 请求                       | 作用                                                 |
 | :--------------------------------- | :------------------------- | :--------------------------------------------------- |
@@ -135,7 +135,7 @@ Fabric Web 行会注册以下 exact routes（均要求 `POST application/json`�
 
 默认 remember ticket 使用 HttpOnly、SameSite=Strict cookie；`rememberChannel: 'header'` 才会兼容 localStorage/header 通道并在响应中返回 ticket。非回环访问不能执行密码操作；`trustedHosts` 只扩展状态/配置读取的 Host authority，不扩大密码操作的 socket+Host 本机判定。
 
-解锁期间解析过的凭证值进入 Leak Guard。Fabric 对 host WebServer 的现有 route table 和后续注册进行包装，HTTP 文本响应及 WebSocket 文本帧离开进程前都会做 earliest/longest literal redaction；二进制帧和工具主动外传不在该保证范围内。
+解锁期间解析过的凭证值进入 Leak Guard。Stent 对 host WebServer 的现有 route table 和后续注册进行包装，HTTP 文本响应及 WebSocket 文本帧离开进程前都会做 earliest/longest literal redaction；二进制帧和工具主动外传不在该保证范围内。
 
 ## 配置项
 
@@ -157,7 +157,7 @@ Fabric Web 行会注册以下 exact routes（均要求 `POST application/json`�
 | `maxUnlockAttempts` / `lockoutBaseMs` / `lockoutMaxMs` | `5` / `30000` / `900000`           | 失败次数和指数退避                       |
 | `trustedHosts`                                         | `[]`                               | 非回环状态读取允许的 Host authority      |
 
-`fabric.patches` 是 bundle 元数据，不要手工复制到其他入口；修改 handler 后请运行 `pnpm check:patch`，它会比较 YAML descriptor 与 `patchStubs()` 并确认官方 `credentials` row 未被禁用。
+`stent.patches` 是 bundle 元数据，不要手工复制到其他入口；修改 handler 后请运行 `pnpm check:patch`，它会比较 YAML descriptor 与 `patchStubs()` 并确认官方 `credentials` row 未被禁用。
 
 ## 安全边界
 

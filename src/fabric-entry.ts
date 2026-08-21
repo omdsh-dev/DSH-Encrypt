@@ -1,14 +1,14 @@
-import type { FabricConfig } from './fabric-controller.js'
+import type { StentConfig } from './fabric-controller.js'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { getFabric } from '@oh-my-dsh/cordis-fabric'
+import { getStent } from '@oh-my-dsh/stent'
 import { assertRuntimeCompat } from './compat.js'
 import { EncryptController, resolveSpec } from './fabric-controller.js'
-import { PATCH_IDS, PATCH_OPERATIONS, patchStubs, registerFabricPatches } from './fabric-handlers.js'
+import { PATCH_IDS, PATCH_OPERATIONS, patchStubs, registerStentPatches } from './fabric-handlers.js'
 import { loadAndVerifyIntegrity } from './integrity.js'
 import { apply as applyWeb } from './web.js'
 
-// The root entry is the thin Fabric adapter. Crypto, persistence, lockout and
+// The root entry is the thin Stent adapter. Crypto, persistence, lockout and
 // redaction live in separate modules so this file never replaces the official
 // credentials provider or reimplements its lifecycle.
 loadAndVerifyIntegrity(import.meta.url)
@@ -17,7 +17,7 @@ assertRuntimeCompat()
 export const name: string = 'dsh-encrypt-fabric'
 export const inject: readonly ['credentials'] = ['credentials']
 
-/** Configuration for the Fabric controller; the official provider uses the same path/dshHome values. */
+/** Configuration for the Stent controller; the official provider uses the same path/dshHome values. */
 export const Config: ReturnType<typeof z.object> = z.object({
   path: z.string().default(''),
   dshHome: z.string().default(''),
@@ -36,23 +36,23 @@ export const Config: ReturnType<typeof z.object> = z.object({
   lockoutBaseMs: z.number().min(1000).default(30000),
   lockoutMaxMs: z.number().min(1000).default(900000),
   trustedHosts: z.array(String).default([]),
-  // Fabric consumes this raw descriptor block before plugin apply; retaining it
+  // Stent consumes this raw descriptor block before plugin apply; retaining it
   // in the row schema prevents a strict config codec from dropping metadata.
-  fabric: z.any(),
+  stent: z.any(),
 })
 
 /**
- * Mount the sidecar controller and register trusted Fabric handlers on this
- * plugin fiber. Plain dsh skips this Fabric-required row; no replacement
+ * Mount the sidecar controller and register trusted Stent handlers on this
+ * plugin fiber. Plain dsh skips this Stent-required row; no replacement
  * credentials provider is mounted here.
  */
-export async function apply(ctx: Context, config: FabricConfig = {}): Promise<void> {
+export async function apply(ctx: Context, config: StentConfig = {}): Promise<void> {
   const controller = new EncryptController(ctx, config)
   await controller.init()
   ctx.provide('dshEncrypt', controller)
   ctx.effect(() => () => controller.dispose(), 'dsh-encrypt: controller')
-  const fabric = getFabric(ctx)
-  registerFabricPatches(fabric, controller)
+  const stent = getStent(ctx)
+  registerStentPatches(stent, controller)
   const installWeb = (webCtx: Context): void => {
     if (controller.webInstalled === true) return
     controller.webInstalled = true
@@ -63,4 +63,4 @@ export async function apply(ctx: Context, config: FabricConfig = {}): Promise<vo
   ctx.inject(['httpServer'], installWeb)
 }
 
-export { EncryptController, PATCH_IDS, PATCH_OPERATIONS, patchStubs, registerFabricPatches, resolveSpec }
+export { EncryptController, PATCH_IDS, PATCH_OPERATIONS, patchStubs, registerStentPatches, resolveSpec }

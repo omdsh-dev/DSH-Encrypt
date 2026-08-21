@@ -55,20 +55,20 @@ export interface PatchStub {
   operation: PatchOperation
 }
 
-interface FabricCall {
+interface StentCall {
   arguments: unknown[]
   result?: unknown
 }
 
 type Invoke = (...args: unknown[]) => unknown
 
-type FabricHandler = (call: FabricCall, invoke?: Invoke) => unknown
+type StentHandler = (call: StentCall, invoke?: Invoke) => unknown
 
-interface FabricRegistry {
-  register: (descriptor: PatchStub & { handler: FabricHandler }) => unknown
+interface StentRegistry {
+  register: (descriptor: PatchStub & { handler: StentHandler }) => unknown
 }
 
-interface FabricController {
+interface StentController {
   leakGuard: LeakGuard
   afterResolve: (ref: string, result: unknown) => unknown
   afterDescribe: (ref: string, result: unknown) => unknown
@@ -79,7 +79,7 @@ interface FabricController {
 const LOCAL_TARGET: PatchTarget = {
   module: '@deepseek-ai/dsh-credentials-local',
   // Covers the rc.6 package currently used by this plugin and the source/lib
-  // launch forms used by fabric-dsh. Tighten this range when the host API is
+  // launch forms used by stent-dsh. Tighten this range when the host API is
   // published under a new incompatible major/minor.
   versionRange: '>=0.0.1-0 <0.2.0',
   filePaths: ['src/index.ts', 'lib/index.js'],
@@ -143,13 +143,13 @@ export function patchStubs(): PatchStub[] {
  * Register trusted handlers on the current plugin fiber. The YAML/profile
  * carries only patch metadata; executable behavior is assembled here.
  */
-export function registerFabricPatches(fabric: FabricRegistry, controller: FabricController): PatchStub[] {
+export function registerStentPatches(stent: StentRegistry, controller: StentController): PatchStub[] {
   const descriptors = patchStubs()
   const byId = new Map(descriptors.map(patch => [patch.id, patch]))
-  const register = (id: string, handler: FabricHandler): void => {
+  const register = (id: string, handler: StentHandler): void => {
     const descriptor = byId.get(id)
-    if (descriptor === undefined) throw new Error(`dsh-encrypt: missing Fabric descriptor ${id}`)
-    fabric.register({ ...descriptor, handler })
+    if (descriptor === undefined) throw new Error(`dsh-encrypt: missing Stent descriptor ${id}`)
+    stent.register({ ...descriptor, handler })
   }
 
   register(PATCH_IDS.credentialsResolve, call => {

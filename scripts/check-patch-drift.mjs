@@ -9,13 +9,13 @@ const patchFile = resolve(root, 'cordis.patch.yml')
 const document = parse(await readFile(patchFile, 'utf8'))
 const row = document.flatMap(operation => operation?.insert ?? []).find(entry => entry?.id === 'dsh-encrypt-fabric')
 if (row === void 0) throw new Error('dsh-encrypt: cordis.patch.yml is missing dsh-encrypt-fabric')
-if (row.disabled !== true) throw new Error('dsh-encrypt: dsh-encrypt-fabric must remain disabled outside fabric-dsh')
+if (row.disabled !== true) throw new Error('dsh-encrypt: dsh-encrypt-fabric must remain disabled outside stent-dsh')
 const expected = patchStubs().map(({ id, required, target, operation }) => ({ id, required, target, operation }))
-const actual = row.config?.fabric?.patches
+const actual = row.config?.stent?.patches
 if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-  throw new Error('dsh-encrypt: cordis.patch.yml Fabric descriptors drift from lib/fabric-handlers.js')
+  throw new Error('dsh-encrypt: cordis.patch.yml Stent descriptors drift from lib/fabric-handlers.js')
 }
 if (document.some(operation => operation?.id === 'credentials' && operation.disabled === true)) {
   throw new Error('dsh-encrypt: cordis.patch.yml must not disable the official credentials row')
 }
-console.log(`dsh-encrypt: verified ${expected.length} Fabric descriptors and official credentials row`)
+console.log(`dsh-encrypt: verified ${expected.length} Stent descriptors and official credentials row`)
