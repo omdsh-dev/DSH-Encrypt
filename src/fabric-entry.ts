@@ -56,7 +56,7 @@ export async function apply(ctx: Context, config: StentConfig = {}): Promise<voi
   const installWeb = (webCtx: Context): void => {
     if (controller.webInstalled === true) return
     controller.webInstalled = true
-    const webContext = { ...webCtx, credentials: controller } as unknown as Parameters<typeof applyWeb>[0]
+    const webContext = webCtx.extend({ credentials: controller }) as unknown as Parameters<typeof applyWeb>[0]
     applyWeb(webContext, config)
   }
   ctx.inject(['webServer'], installWeb)

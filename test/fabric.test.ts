@@ -1,8 +1,9 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Context } from '@deepseek-ai/cordis'
 import { expect, it } from 'vitest'
-import { EncryptController, PATCH_IDS, PATCH_OPERATIONS, patchStubs, resolveSpec } from '../lib/fabric-entry.js'
+import { EncryptController, PATCH_IDS, PATCH_OPERATIONS, apply, patchStubs, resolveSpec } from '../lib/fabric-entry.js'
 import { encryptedMarker, isEncryptedMarker, parsePlainEntries } from '../lib/plain.js'
 import { assertTrustedAuthority, isLoopbackRequest, isLoopbackSocket, isTrustedRequest } from '../lib/trust.js'
 import { sha3_256Hex } from '../lib/vault.js'
@@ -34,6 +35,43 @@ async function fixture() {
   }
 }
 
+it('registers web routes through an extended Cordis context', async () => {
+  const f = await fixture()
+  const root = new Context()
+  const exact = new Map<string, unknown>()
+  const webServer = {
+    host: '127.0.0.1',
+    exact,
+    prefixes: new Map<string, unknown>(),
+    upgrades: new Map<string, unknown>(),
+    register(route: { path: string }) {
+      exact.set(route.path, route)
+      return () => exact.delete(route.path)
+    },
+  }
+  const credentials = {
+    spec: { filename: f.path },
+    notifyUpdated() {},
+  }
+  const disposeCredentials = root.provide('credentials', credentials)
+  const disposeWebServer = root.provide('webServer', webServer)
+  try {
+    const fiber = root.plugin({
+      inject: ['credentials'],
+      apply: pluginContext => apply(pluginContext, { ...f, watch: false }),
+    })
+    await fiber
+    await new Promise<void>(resolve => setImmediate(resolve))
+    expect(exact.has('/api/credentials.status')).toBe(true)
+    expect(exact.has('/api/credentials.unlock')).toBe(true)
+    await fiber.dispose()
+    expect(exact.size).toBe(0)
+  } finally {
+    await disposeWebServer()
+    await disposeCredentials()
+    await rm(f.dir, { recursive: true, force: true })
+  }
+})
 it('patch stubs keep hook metadata separate from the controller', () => {
   const stubs = patchStubs()
   expect(stubs.map(({ id }) => id)).toEqual(Object.values(PATCH_IDS))
