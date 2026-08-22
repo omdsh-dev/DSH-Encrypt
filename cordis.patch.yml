@@ -9,7 +9,7 @@
 #   .credentials.yaml          comment-only shadow marker
 #   .credentials.encrypt.yaml  encrypted credential document
 - insert:
-    - id: dsh-encrypt-fabric
+    - id: dsh-encrypt-stent
       name: 'dsh-encrypt'
       disabled: true
       config:

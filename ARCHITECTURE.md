@@ -1,13 +1,13 @@
 # dsh-encrypt 架构
 
-本分支以 upstream/master 的分层 TypeScript/toolchain 为安全基础，再增加一个 Stent sidecar 组合层。包根入口是 `src/fabric-entry.ts`：它**不替换**官方 credentials provider，只创建 sidecar controller 并注册 Stent seams。`src/index.ts` 保留 upstream provider-compatible 入口和核心实现，便于复用、测试以及后续迁移；发布包根 `.` 指向 `lib/fabric-entry.js`。
+本分支以 upstream/master 的分层 TypeScript/toolchain 为安全基础，再增加一个 Stent sidecar 组合层。包根入口是 `src/stent-entry.ts`：它**不替换**官方 credentials provider，只创建 sidecar controller 并注册 Stent seams。`src/index.ts` 保留 upstream provider-compatible 入口和核心实现，便于复用、测试以及后续迁移；发布包根 `.` 指向 `lib/stent-entry.js`。
 
 ## 运行时所有权
 
 | 组件                                                     | 所有权           | 责任                                                                        |
 | :------------------------------------------------------- | :--------------- | :-------------------------------------------------------------------------- |
 | `@deepseek-ai/dsh-credentials-local` / `credentials` row | 官方 provider    | provider 生命周期、环境层、官方 `.credentials.yaml` 读取和原生 watcher      |
-| `dsh-encrypt-fabric`                                     | 本插件 Stent row | controller 生命周期、sidecar 文件、加密状态、Stent patch registration       |
+| `dsh-encrypt-stent`                                      | 本插件 Stent row | controller 生命周期、sidecar 文件、加密状态、Stent patch registration       |
 | `@deepseek-ai/dsh-host-webserver`                        | host             | HTTP route table、upgrade table 和实际监听；本插件只通过 Stent 包装注册参数 |
 | `lib/integrity.js` + manifest                            | 构建产物         | 启动时检查已发布文件和 `cordis.patch.yml` 是否完整一致                      |
 
@@ -15,19 +15,19 @@
 
 ## 模块边界
 
-| 层              | 目录/入口                                                            | 职责                                                                          | 允许依赖                          |
-| :-------------- | :------------------------------------------------------------------- | :---------------------------------------------------------------------------- | :-------------------------------- |
-| 领域            | `src/domain`                                                         | vault/provider model、稳定错误码、Valibot schemas                             | `src/shared`、Valibot             |
-| 应用            | `src/application`                                                    | upstream 密码操作、remember、队列和 provider policy                           | 领域层、基础设施端口              |
-| 基础设施        | `src/infrastructure`                                                 | Argon2id/AES-GCM、vault 文档、状态文件、权限和运行时配置                      | 领域层、共享校验                  |
-| 传输            | `src/transport`                                                      | HTTP 结构、请求 schema、限量读取和边界错误                                    | 领域层、Valibot                   |
-| 安全            | `src/security`、`src/leak-guard.ts`                                  | literal leak matching、HTTP/WS redaction 和 socket fence                      | 窄安全接口                        |
-| 客户端          | `src/client`、`src/client.ts`                                        | 浏览器 SHA3、API、remember storage 和设置页状态                               | 浏览器标准 API                    |
-| Stent 组合      | `src/fabric-entry.ts`、`src/fabric-handlers.ts`                      | Cordis config、controller 创建、6 个 patch descriptor/handler、WebServer 注入 | Stent API、官方 credentials seams |
-| Sidecar runtime | `src/fabric-controller-runtime.js`、`src/plain.ts`、`src/migrate.ts` | marker/sidecar 生命周期、兼容的 invoke hooks、旧格式迁移                      | vault、lockout、home/atomic-write |
-| 兼容入口        | `src/index.ts`、`src/vault.ts`、`src/web.ts`、`src/client.ts`        | 稳定导出和组合，不承载新的底层协议                                            | 上述分层模块                      |
+| 层              | 目录/入口                                                           | 职责                                                                          | 允许依赖                          |
+| :-------------- | :------------------------------------------------------------------ | :---------------------------------------------------------------------------- | :-------------------------------- |
+| 领域            | `src/domain`                                                        | vault/provider model、稳定错误码、Valibot schemas                             | `src/shared`、Valibot             |
+| 应用            | `src/application`                                                   | upstream 密码操作、remember、队列和 provider policy                           | 领域层、基础设施端口              |
+| 基础设施        | `src/infrastructure`                                                | Argon2id/AES-GCM、vault 文档、状态文件、权限和运行时配置                      | 领域层、共享校验                  |
+| 传输            | `src/transport`                                                     | HTTP 结构、请求 schema、限量读取和边界错误                                    | 领域层、Valibot                   |
+| 安全            | `src/security`、`src/leak-guard.ts`                                 | literal leak matching、HTTP/WS redaction 和 socket fence                      | 窄安全接口                        |
+| 客户端          | `src/client`、`src/client.ts`                                       | 浏览器 SHA3、API、remember storage 和设置页状态                               | 浏览器标准 API                    |
+| Stent 组合      | `src/stent-entry.ts`、`src/stent-handlers.ts`                       | Cordis config、controller 创建、6 个 patch descriptor/handler、WebServer 注入 | Stent API、官方 credentials seams |
+| Sidecar runtime | `src/stent-controller-runtime.js`、`src/plain.ts`、`src/migrate.ts` | marker/sidecar 生命周期、兼容的 invoke hooks、旧格式迁移                      | vault、lockout、home/atomic-write |
+| 兼容入口        | `src/index.ts`、`src/vault.ts`、`src/web.ts`、`src/client.ts`       | 稳定导出和组合，不承载新的底层协议                                            | 上述分层模块                      |
 
-Stent controller 的实现被有意隔离成一个只负责运行时迁移的兼容模块；`src/fabric-controller.ts` 提供 typed constructor/path facade，避免 legacy lifecycle 方法污染 upstream 的 isolated declaration 生成。它没有独立的 provider service，也不会绕过官方 credentials row。
+Stent controller 的实现被有意隔离成一个只负责运行时迁移的兼容模块；`src/stent-controller.ts` 提供 typed constructor/path facade，避免 legacy lifecycle 方法污染 upstream 的 isolated declaration 生成。它没有独立的 provider service，也不会绕过官方 credentials row。
 
 ## Vault 与 sidecar 组合
 
@@ -38,7 +38,7 @@ Stent controller 的实现被有意隔离成一个只负责运行时迁移的兼
 3. `infrastructure/crypto/vault-crypto.ts` 处理 Argon2id、旧 scrypt、AES-GCM、SHA3 和 key zeroization。
 4. `infrastructure/persistence/vault-document.ts` 处理序列化、结构校验和文档 fingerprint。
 5. `application/password-service.ts` / `remember-service.ts` 处理密码、ticket 和恢复。
-6. `fabric-controller-runtime.js` 将相同 vault primitive 映射到 sidecar 文件和官方 provider hooks。
+6. `stent-controller-runtime.js` 将相同 vault primitive 映射到 sidecar 文件和官方 provider hooks。
 
 sidecar 状态转换：
 
@@ -56,7 +56,7 @@ sidecar 状态转换：
 
 ## Stent patch 契约
 
-`src/fabric-handlers.ts` 是唯一的 executable descriptor source；YAML 只携带 bundle metadata。当前稳定 ID/操作如下：
+`src/stent-handlers.ts` 是唯一的 executable descriptor source；YAML 只携带 bundle metadata。当前稳定 ID/操作如下：
 
 - `credentials-resolve` / `credentials-describe`: official `resolve`/`describe` 的 `after`；
 - `credentials-set` / `credentials-unset`: official `set`/`unset` 的 `around`；
@@ -73,7 +73,7 @@ drift check 会比较 `id`、`required`、`target`、`operation`，并拒绝任�
 
 ## Web 与安全边界
 
-Stent entry 等待 `webServer` 或 `httpServer` 注入，然后以 `{ credentials: controller, ...webContext }` 调用 `src/web.ts`。这样 upstream Web transport 不需要知道 Stent，仍可复用：
+Stent entry 等待 `webServer` 或 `httpServer` 注入，然后以 `webContext.extend({ credentials: controller })` 创建传给 `src/web.ts` 的上下文。这样 upstream Web transport 不需要知道 Stent，仍可复用：
 
 - Valibot 请求结构与 body size/timeout fence；
 - Host authority + loopback socket 双重判定；

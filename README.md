@@ -14,7 +14,7 @@
 ## 设计目标
 
 - **官方 provider 仍是 owner**：保留 `credentials` row，不禁用它；官方 provider 继续负责环境层、YAML marker 读取、生命周期和兼容行为。
-- **Stent 只改接缝**：`dsh-encrypt-fabric` row 默认 `disabled: true`，仅由 `stent-dsh` profile 启用；patch descriptor 与运行时 `patchStubs()` 自动做 drift check。
+- **Stent 只改接缝**：`dsh-encrypt-stent` row 默认 `disabled: true`，仅由 `stent-dsh` profile 启用；patch descriptor 与运行时 `patchStubs()` 自动做 drift check。
 - **旁车存储**：明文迁移为 `.credentials.yaml` marker + `.credentials.encrypt.yaml` 密文文件，避免让官方 parser 看到密文；旧版单文件密文通过迁移 CLI 显式转换。
 - **安全默认值**：Argon2id + AES-256-GCM、SHA3-256 指纹、0600 原子写、文件锁、锁定退避、remember ticket 和 HTTP/WebSocket Leak Guard。
 - **跟随 upstream/master 安全层**：领域模型、Valibot 输入校验、不可变 literal matcher、操作队列、完整性 manifest、runtime compatibility fence 和 TypeScript build toolchain 均来自上游重构；Stent adapter 作为独立组合层接入。
@@ -40,14 +40,14 @@ dsh plugin --profile stent-dsh add ./dsh-encrypt-0.1.0-rc.12.tgz
 
 ```yaml
 - insert:
-    - id: dsh-encrypt-fabric
+    - id: dsh-encrypt-stent
       name: 'dsh-encrypt'
       disabled: true
       config:
         allowEnvFallback: true
         trustedHosts: []
         stent:
-          patches: # 6 个与 src/fabric-handlers.ts 同步的 descriptor
+          patches: # 6 个与 src/stent-handlers.ts 同步的 descriptor
 ```
 
 `stent-dsh` profile 启用这个 disabled row；普通 `dsh` profile 会跳过它，因此不会意外改变官方 provider。启用后：
@@ -55,7 +55,7 @@ dsh plugin --profile stent-dsh add ./dsh-encrypt-0.1.0-rc.12.tgz
 | 层            | 入口                                         | 职责                                                          |
 | :------------ | :------------------------------------------- | :------------------------------------------------------------ |
 | 官方 provider | `@deepseek-ai/dsh-credentials-local`         | 继续拥有 provider 生命周期、环境解析和 marker 文件            |
-| Stent adapter | `lib/fabric-entry.js`                        | 创建 sidecar controller、注册 6 个 Stent patch、挂载 Web 行为 |
+| Stent adapter | `lib/stent-entry.js`                         | 创建 sidecar controller、注册 6 个 Stent patch、挂载 Web 行为 |
 | Web 安全层    | `lib/web.js` + host `webServer`/`httpServer` | 密码操作、remember ticket、Host fence、HTTP/WS 输出脱敏       |
 | 浏览器 client | `lib/client.js`                              | SHA3-256 摘要、设置页和 cookie/header remember 流程           |
 
@@ -139,7 +139,7 @@ Stent Web 行会注册以下 exact routes（均要求 `POST application/json`，
 
 ## 配置项
 
-`dsh-encrypt-fabric` row 的主要配置：
+`dsh-encrypt-stent` row 的主要配置：
 
 | 字段                                                   | 默认值                             | 说明                                     |
 | :----------------------------------------------------- | :--------------------------------- | :--------------------------------------- |

@@ -2,7 +2,7 @@ import type { LeakGuard } from './leak-guard.js'
 import {
   EncryptController as RuntimeEncryptController,
   resolveSpec as runtimeResolveSpec,
-} from './fabric-controller-runtime.js'
+} from './stent-controller-runtime.js'
 
 // The controller implementation is kept in a compatibility JavaScript module so
 // the upstream tsdown declaration pass does not have to infer hundreds of legacy

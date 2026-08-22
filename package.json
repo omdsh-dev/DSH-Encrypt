@@ -24,20 +24,20 @@
     "cordis.patch.yml"
   ],
   "type": "module",
-  "main": "./lib/fabric-entry.js",
-  "types": "./lib/fabric-entry.d.ts",
+  "main": "./lib/stent-entry.js",
+  "types": "./lib/stent-entry.d.ts",
   "exports": {
     ".": {
-      "types": "./lib/fabric-entry.d.ts",
-      "import": "./lib/fabric-entry.js"
+      "types": "./lib/stent-entry.d.ts",
+      "import": "./lib/stent-entry.js"
     },
     "./index": {
       "types": "./lib/index.d.ts",
       "import": "./lib/index.js"
     },
-    "./fabric-entry": {
-      "types": "./lib/fabric-entry.d.ts",
-      "import": "./lib/fabric-entry.js"
+    "./stent-entry": {
+      "types": "./lib/stent-entry.d.ts",
+      "import": "./lib/stent-entry.js"
     },
     "./migrate": {
       "types": "./lib/migrate.d.ts",

@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { expect, it } from 'vitest'
-import { EncryptController, PATCH_IDS, PATCH_OPERATIONS, apply, patchStubs, resolveSpec } from '../lib/fabric-entry.js'
 import { encryptedMarker, isEncryptedMarker, parsePlainEntries } from '../lib/plain.js'
+import { EncryptController, PATCH_IDS, PATCH_OPERATIONS, apply, patchStubs, resolveSpec } from '../lib/stent-entry.js'
 import { assertTrustedAuthority, isLoopbackRequest, isLoopbackSocket, isTrustedRequest } from '../lib/trust.js'
 import { sha3_256Hex } from '../lib/vault.js'
 
@@ -26,7 +26,7 @@ function context() {
 }
 
 async function fixture() {
-  const dir = await mkdtemp(join(tmpdir(), 'dsh-encrypt-fabric-'))
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-encrypt-stent-'))
   return {
     dir,
     path: join(dir, '.credentials.yaml'),

@@ -1,11 +1,11 @@
-import type { StentConfig } from './fabric-controller.js'
+import type { StentConfig } from './stent-controller.js'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { getStent } from '@oh-my-dsh/stent'
 import { assertRuntimeCompat } from './compat.js'
-import { EncryptController, resolveSpec } from './fabric-controller.js'
-import { PATCH_IDS, PATCH_OPERATIONS, patchStubs, registerStentPatches } from './fabric-handlers.js'
 import { loadAndVerifyIntegrity } from './integrity.js'
+import { EncryptController, resolveSpec } from './stent-controller.js'
+import { PATCH_IDS, PATCH_OPERATIONS, patchStubs, registerStentPatches } from './stent-handlers.js'
 import { apply as applyWeb } from './web.js'
 
 // The root entry is the thin Stent adapter. Crypto, persistence, lockout and
@@ -14,7 +14,7 @@ import { apply as applyWeb } from './web.js'
 loadAndVerifyIntegrity(import.meta.url)
 assertRuntimeCompat()
 
-export const name: string = 'dsh-encrypt-fabric'
+export const name: string = 'dsh-encrypt-stent'
 export const inject: readonly ['credentials'] = ['credentials']
 
 /** Configuration for the Stent controller; the official provider uses the same path/dshHome values. */
