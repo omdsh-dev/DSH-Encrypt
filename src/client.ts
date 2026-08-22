@@ -320,7 +320,7 @@ interface ButtonProps {
           React.createElement(
             'p',
             { key: 'intro', style: LABEL },
-            '当前凭证以明文存储在 .credentials.yaml 中。设置密码后，同一文件的内容会被替换为 AES-256-GCM 密文（SHA3-256 完整性校验），每次模型调用时临时解密。',
+            '当前凭证以明文存储在 .credentials.yaml 中。设置密码后，该文件只保留标记，密文另存为同目录的 .credentials.encrypt.yaml（AES-256-GCM，SHA3-256 完整性校验）；每次模型调用时从旁车临时解密。',
           ),
           local
             ? React.createElement('div', { key: 'card', style: CARD }, [
